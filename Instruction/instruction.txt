@@ -1,0 +1,201 @@
+================================================================================
+TEACHER EVALUATION SYSTEM - INSTALLATION & RUNNING GUIDE
+================================================================================
+
+MGA HAKBANG PARA MAPATULO ANG SYSTEM:
+
+================================================================================
+1. I-EXTRACT ANG FILES
+================================================================================
+I-extract ang lahat ng files sa isang folder (halimbawa: teacher-eval-system)
+
+================================================================================
+2. MAG-INSTALL NG PYTHON (kung wala pa)
+================================================================================
+- I-download ang Python 3.8+ mula sa python.org
+- Tiyaking i-check ang "Add Python to PATH" sa installation
+
+================================================================================
+3. BUKSAN ANG COMMAND PROMPT / TERMINAL
+================================================================================
+Windows: Press Win + R, type "cmd", then Enter
+Mac: Press Cmd + Space, type "Terminal"
+
+Navigate sa folder ng system:
+cd C:\path\to\teacher-eval-system
+
+================================================================================
+4. GUMAWA NG VIRTUAL ENVIRONMENT (OPTIONAL PERO RECOMMENDED)
+================================================================================
+Windows:
+    python -m venv venv
+    venv\Scripts\activate
+
+Mac/Linux:
+    python3 -m venv venv
+    source venv/bin/activate
+
+================================================================================
+5. I-INSTALL ANG MGA REQUIREMENTS
+================================================================================
+pip install -r requirements.txt
+
+Ito ay mag-i-install ng:
+- Flask at extensions
+- ReportLab (para sa PDF)
+- Iba pang dependencies
+
+================================================================================
+6. I-SETUP ANG DATABASE
+================================================================================
+PATULUNGIN ANG MGA SUMUSUNOD NA SCRIPTS SA PAGKAKASUNOD-SUNOD:
+
+Una, patakbuhin ang init_db.py:
+    python init_db.py
+
+Pangalawa, patakbuhin ang add_program_heads.py:
+    python add_program_heads.py
+
+Pangatlo, patakbuhin ang add_programs.py:
+    python add_programs.py
+
+Pangapat, patakbuhin ang init_bsit307.py (para sa BSIT section):
+    python init_bsit307.py
+
+Panglima, patakbuhin ang fix_teacher_data.py:
+    python fix_teacher_data.py
+
+Pang-anim, patakbuhin ang fix_program_head_data.py:
+    python fix_program_head_data.py
+
+================================================================================
+7. PATULUNGAN ANG APPLICATION
+================================================================================
+python app.py
+
+Pagkatapos, buksan ang browser at i-type ang:
+    http://localhost:5000
+
+================================================================================
+DEFAULT LOGIN CREDENTIALS
+================================================================================
+
+| ROLE              | USERNAME     | PASSWORD      |
+|-------------------|--------------|---------------|
+| Administrator     | admin        | admin123      |
+| Dean              | dean         | password123   |
+| Program Head (CS) | ph_ccs       | password123   |
+| Program Head (Entrep)| ph_entrep | password123   |
+| Program Head (FM) | ph_fm        | password123   |
+| Student (BSIT)    | bsit307_student1 | password123 |
+| Student (ENTREP)  | entrep301_student1 | password123 |
+| Student (FM)      | fm202_student1 | password123 |
+
+================================================================================
+MGA TAMPOK NG SYSTEM (Features)
+================================================================================
+
+🚀 STUDENT DASHBOARD
+   - Regular students: Pumili ng section at i-evaluate ang bawat klase
+   - Irregular students: Mag-enter ng Schedule ID para mag-evaluate
+
+🚀 PROGRAM HEAD DASHBOARD
+   - Tingnan ang mga teachers sa sariling department
+   - I-evaluate ang mga teachers (30% weight)
+
+🚀 DEAN DASHBOARD
+   - Tingnan ang lahat ng teachers
+   - I-evaluate ang mga teachers (20% weight)
+
+🚀 ADMIN DASHBOARD
+   - Mag-manage ng users, teachers, programs
+   - Tingnan ang audit logs
+   - Magpadala ng email reminders
+
+🚀 TEACHER DASHBOARD
+   - Tingnan ang evaluation scores
+   - I-export ang report (PDF/CSV)
+
+================================================================================
+KUNG MAY ERROR
+================================================================================
+
+Error: "Module not found"
+    Solusyon: pip install [module_name]
+
+Error: Database error
+    Solusyon: Delete ang evaluation.db file, then re-run ang init_db.py
+
+Error: Port 5000 already in use
+    Solusyon1: Magpalit ng port sa app.py (palitan ang debug=True)
+    Solusyon2: Patayin ang ibang program na gumagamit ng port 5000
+
+Error: Cannot login
+    Solusyon: Patakbuhin ang fix_admin.py at check_users.py
+
+================================================================================
+MGA API ENDPOINTS (Para sa mga programmer)
+================================================================================
+
+GET  /api/teacher/<id>/stats     - Kunin ang teacher statistics
+GET  /api/teacher/<id>/trends    - Kunin ang monthly trends
+POST /api/toggle-user/<id>       - I-activate/deactivate ang user
+POST /api/toggle-teacher/<id>    - I-activate/deactivate ang teacher
+GET  /api/evaluations-by-role    - Bilang ng evaluations per role
+GET  /api/department-scores      - Average scores per department
+GET  /check-username             - Tignan kung available ang username
+GET  /check-student-id           - Tignan kung available ang student ID
+
+================================================================================
+FILE STRUCTURE
+================================================================================
+
+teacher-evaluation-system/
+│
+├── app.py              # Main application (ito ang pinaka-core)
+├── models.py           # Database models/tables
+├── config.py           # Configuration settings
+├── utils.py            # Helper functions (PDF, CSV, email)
+├── requirements.txt    # Python packages na kailangan
+│
+├── init_db.py          # Initial database setup
+├── add_program_heads.py    # Gumagawa ng program heads
+├── add_programs.py         # Gumagawa ng mga programa
+├── fix_teacher_data.py     # Gumagawa ng teacher evaluations
+├── fix_program_head_data.py # Gumagawa ng program head data
+│
+├── templates/          # HTML templates
+│   ├── base.html
+│   ├── login.html
+│   ├── register.html
+│   ├── admin/
+│   ├── student/
+│   ├── program_head/
+│   ├── dean/
+│   └── shared/
+│
+└── static/             # CSS at JavaScript files
+    ├── style.css
+    ├── dashboard.js
+    └── charts.js
+
+================================================================================
+PAALALA
+================================================================================
+
+1. Siguraduhing naka-install ang lahat ng requirements bago patakbuhin ang app
+2. Gamitin ang tamang credentials depende sa role na gusto mong i-access
+3. Para sa regular students, kailangan muna mag-enroll sa section
+4. Para sa irregular students, kailangan ang Schedule ID para mag-evaluate
+5. I-backup ang evaluation.db kung may importanteng data
+
+================================================================================
+CONTACT / SUPPORT
+================================================================================
+
+Kung may problema, suriin ang:
+- Console logs sa terminal
+- Browser developer tools (F12)
+- evaluation.db kung may laman
+
+================================================================================

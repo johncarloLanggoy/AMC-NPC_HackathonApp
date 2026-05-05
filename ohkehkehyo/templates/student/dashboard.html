@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+
+{% block title %}Student Dashboard{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <h2 class="mb-4"><i class="bi bi-mortarboard"></i> Student Dashboard</h2>
+    <p class="lead">Welcome back, {{ current_user.full_name }}!</p>
+    
+    <!-- Show student type badge -->
+    <div class="alert alert-{{ 'info' if not current_user.is_irregular else 'warning' }} mb-4">
+        <i class="bi bi-{{ 'person-check' if not current_user.is_irregular else 'person-arms-up' }}"></i>
+        <strong>{{ 'Regular Student' if not current_user.is_irregular else 'Irregular Student' }}</strong>
+        {% if current_user.is_irregular %}
+            <br><small>You can evaluate classes by entering your Schedule ID manually.</small>
+        {% endif %}
+    </div>
+    
+    <!-- Show student's enrolled sections (for regular students) -->
+    {% if current_user.enrollments and current_user.enrollments|selectattr('is_active')|list %}
+        {% for enrollment in current_user.enrollments if enrollment.is_active %}
+        <div class="alert alert-info mb-4">
+            <i class="bi bi-info-circle-fill"></i>
+            <strong>{{ enrollment.section.name }}</strong> - 
+            {{ enrollment.section.program }} | Year {{ enrollment.section.year_level }} | Semester {{ enrollment.section.semester }}
+            {% if enrollment.section.school_year %}
+                | School Year: {{ enrollment.section.school_year }}
+            {% endif %}
+        </div>
+        
+        <div class="row mt-4">
+            <div class="col-md-8">
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="bi bi-book"></i> Your Classes to Evaluate ({{ enrollment.section.name }})</h5>
+                    </div>
+                    <div class="card-body">
+                        {% set section_classes = enrollment.section.class_assignments|selectattr('is_active')|list %}
+                        {% if section_classes %}
+                            {% for class_assignment in section_classes %}
+                                {% set is_evaluated = class_assignment.evaluations|selectattr('evaluator_id', 'equalto', current_user.id)|list|length > 0 %}
+                                <div class="card mb-3 {% if is_evaluated %}border-secondary{% else %}border-primary{% endif %}">
+                                    <div class="card-body">
+                                        <div class="row align-items-center">
+                                            <div class="col-md-5">
+                                                <h6 class="card-title mb-1">
+                                                    <strong>{{ class_assignment.subject_name }}</strong>
+                                                </h6>
+                                                <p class="card-text text-muted small mb-0">
+                                                    <i class="bi bi-person"></i> {{ class_assignment.teacher.name }}<br>
+                                                    <i class="bi bi-tag"></i> {{ class_assignment.subject_type }} 
+                                                    | Schedule ID: {{ class_assignment.schedule_id }}
+                                                </p>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <span class="badge bg-secondary">{{ enrollment.section.name }}</span>
+                                                {% if current_user.is_irregular %}
+                                                    <span class="badge bg-warning ms-1">Irregular</span>
+                                                {% endif %}
+                                            </div>
+                                            <div class="col-md-4 text-end">
+                                                {% if is_evaluated %}
+                                                    <div class="alert alert-success mb-0 py-2">
+                                                        <i class="bi bi-check-circle-fill"></i> Already Evaluated
+                                                    </div>
+                                                {% else %}
+                                                    <a href="{{ url_for('student_evaluate_class', class_id=class_assignment.id) }}" 
+                                                       class="btn btn-primary">
+                                                        <i class="bi bi-pencil-square"></i> Evaluate This Class
+                                                    </a>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="text-center py-4">
+                                <i class="bi bi-emoji-frown fs-1 text-muted"></i>
+                                <p class="text-muted mt-2">No classes available for this section.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0"><i class="bi bi-clock-history"></i> Recent Evaluations</h5>
+                    </div>
+                    <div class="card-body">
+                        {% set recent_evals = [] %}
+                        {% for enrollment in current_user.enrollments if enrollment.is_active %}
+                            {% for class_assign in enrollment.section.class_assignments %}
+                                {% for eval in class_assign.evaluations if eval.evaluator_id == current_user.id %}
+                                    {% set _ = recent_evals.append(eval) %}
+                                {% endfor %}
+                            {% endfor %}
+                        {% endfor %}
+                        
+                        {% if recent_evals|length > 0 %}
+                            <div class="list-group list-group-flush">
+                                {% set counter = 0 %}
+                                {% for eval in recent_evals|sort(attribute='submitted_at', reverse=true) %}
+                                    {% if counter < 5 %}
+                                        <div class="list-group-item px-0">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <strong>{{ eval.class_assignment.subject_name }}</strong>
+                                                    <br>
+                                                    <small class="text-muted">
+                                                        {{ eval.class_assignment.teacher.name|truncate(20) }}<br>
+                                                        {{ eval.submitted_at.strftime('%Y-%m-%d') }}
+                                                    </small>
+                                                </div>
+                                                <span class="badge bg-primary">{{ "%.1f"|format(eval.calculate_raw_score()) }}/5</span>
+                                            </div>
+                                        </div>
+                                        {% set counter = counter + 1 %}
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <p class="text-muted text-center mb-0">No evaluations submitted yet.</p>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="card shadow-sm">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0"><i class="bi bi-pie-chart"></i> Your Stats</h5>
+                    </div>
+                    <div class="card-body text-center">
+                        <h3>{{ recent_evals|length }}</h3>
+                        <p class="text-muted">Evaluations Completed</p>
+                        <hr>
+                        {% set total_classes = 0 %}
+                        {% for enrollment in current_user.enrollments if enrollment.is_active %}
+                            {% set total_classes = total_classes + enrollment.section.class_assignments|selectattr('is_active')|list|length %}
+                        {% endfor %}
+                        <h3>{{ total_classes }}</h3>
+                        <p class="text-muted">Total Classes This Semester</p>
+                        <hr>
+                        {% if total_classes > 0 %}
+                            {% set completion_percent = (recent_evals|length / total_classes * 100)|round|int %}
+                        {% else %}
+                            {% set completion_percent = 0 %}
+                        {% endif %}
+                        
+                        <div class="progress mb-3" style="height: 20px;">
+                            <div class="progress-bar bg-success" role="progressbar" 
+                                 data-progress="{{ completion_percent }}"
+                                 aria-valuenow="{{ completion_percent }}" 
+                                 aria-valuemin="0" 
+                                 aria-valuemax="100">
+                                {{ completion_percent }}%
+                            </div>
+                        </div>
+                        <p class="text-muted">Completion Rate</p>
+                        
+                        {% if current_user.is_irregular %}
+                            <hr>
+                            <div class="alert alert-warning small">
+                                <i class="bi bi-info-circle"></i>
+                                As an irregular student, you can evaluate classes by entering your Schedule ID.
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        
+    {% else %}
+        <!-- IRREGULAR STUDENT EVALUATION INTERFACE -->
+        <div class="alert alert-warning mb-4">
+            <i class="bi bi-exclamation-triangle-fill"></i>
+            <strong>Irregular Student Mode:</strong> You are not automatically enrolled in any section. 
+            You can evaluate classes by entering the Schedule ID manually.
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="bi bi-search"></i> Evaluate by Schedule ID</h5>
+                    </div>
+                    <div class="card-body">
+                        <form action="{{ url_for('irregular_evaluate_by_schedule') }}" method="GET" class="mb-3">
+                            <div class="mb-3">
+                                <label class="form-label">Enter Schedule ID</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-upc-scan"></i></span>
+                                    <input type="text" class="form-control" name="schedule_id" 
+                                           placeholder="e.g., 37141" pattern="[0-9]{5}" required>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="bi bi-box-arrow-right"></i> Find Class
+                                    </button>
+                                </div>
+                                <small class="text-muted">Enter the 5-digit Schedule ID from your class schedule</small>
+                            </div>
+                        </form>
+                        <hr>
+                        <div class="alert alert-info small mb-0">
+                            <i class="bi bi-info-circle"></i> 
+                            <strong>How to find your Schedule ID:</strong><br>
+                            Check your class enrollment form or ask your class representative for the Schedule ID of each subject.
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0"><i class="bi bi-clock-history"></i> Your Past Evaluations</h5>
+                    </div>
+                    <div class="card-body">
+                        {% set irregular_evals = current_user.class_evaluations|list %}
+                        {% if irregular_evals %}
+                            <div class="list-group list-group-flush">
+                                {% for eval in irregular_evals|sort(attribute='submitted_at', reverse=true) %}
+                                    <div class="list-group-item px-0">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <strong>{{ eval.class_assignment.subject_name }}</strong>
+                                                <br>
+                                                <small class="text-muted">
+                                                    {{ eval.class_assignment.teacher.name|truncate(20) }}<br>
+                                                    Schedule: {{ eval.class_assignment.schedule_id }}
+                                                </small>
+                                            </div>
+                                            <span class="badge bg-primary">{{ "%.1f"|format(eval.calculate_raw_score()) }}/5</span>
+                                        </div>
+                                        <div class="mt-2">
+                                            <small class="text-muted">Submitted: {{ eval.submitted_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="text-center py-4">
+                                <i class="bi bi-inbox fs-1 text-muted"></i>
+                                <p class="text-muted mt-2">No evaluations submitted yet.</p>
+                                <p class="text-muted small">Use the form on the left to evaluate a class by Schedule ID.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Available Schedule IDs Reference -->
+        <div class="card shadow-sm mt-4">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0"><i class="bi bi-database"></i> Available Schedule IDs for Evaluation</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% set all_classes = namespace(list=[]) %}
+                    {% for section in Section.query.filter_by(is_active=True).all() %}
+                        {% for class_assign in section.class_assignments if class_assign.is_active %}
+                            {% set _ = all_classes.list.append(class_assign) %}
+                        {% endfor %}
+                    {% endfor %}
+                    
+                    {% if all_classes.list %}
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Schedule ID</th>
+                                        <th>Subject</th>
+                                        <th>Teacher</th>
+                                        <th>Section</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for class_assign in all_classes.list[:20] %}
+                                    <tr>
+                                        <td><code>{{ class_assign.schedule_id }}</code></td>
+                                        <td>{{ class_assign.subject_name }}</td>
+                                        <td>{{ class_assign.teacher.name }}</td>
+                                        <td>{{ class_assign.section.name }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                            {% if all_classes.list|length > 20 %}
+                                <p class="text-muted small mt-2">Showing 20 of {{ all_classes.list|length }} available classes.</p>
+                            {% endif %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted text-center mb-0">No classes available for evaluation yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const progressBars = document.querySelectorAll('.progress-bar');
+    progressBars.forEach(function(bar) {
+        const progress = bar.getAttribute('data-progress');
+        if (progress) {
+            bar.style.width = progress + '%';
+        }
+    });
+});
+</script>
+{% endblock %}

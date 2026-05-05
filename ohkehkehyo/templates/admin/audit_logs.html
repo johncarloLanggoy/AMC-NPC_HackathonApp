@@ -1,0 +1,494 @@
+{% extends "base.html" %}
+
+{% block title %}Audit Logs{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-journal-text"></i> Audit Logs</h2>
+        <a href="{{ url_for('export_audit_logs') }}" class="btn btn-success">
+            <i class="bi bi-download"></i> Export to CSV
+        </a>
+    </div>
+    
+    <!-- Role Tabs -->
+    <ul class="nav nav-tabs mb-4" id="auditTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="all-tab" data-bs-toggle="tab" data-bs-target="#all" 
+                    type="button" role="tab" aria-controls="all" aria-selected="true">
+                <i class="bi bi-files"></i> All Logs
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="admin-tab" data-bs-toggle="tab" data-bs-target="#admin" 
+                    type="button" role="tab" aria-controls="admin" aria-selected="false">
+                <i class="bi bi-shield-lock"></i> Admin
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="dean-tab" data-bs-toggle="tab" data-bs-target="#dean" 
+                    type="button" role="tab" aria-controls="dean" aria-selected="false">
+                <i class="bi bi-building"></i> Dean
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="program-head-tab" data-bs-toggle="tab" data-bs-target="#program-head" 
+                    type="button" role="tab" aria-controls="program-head" aria-selected="false">
+                <i class="bi bi-people"></i> Program Head
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="student-tab" data-bs-toggle="tab" data-bs-target="#student" 
+                    type="button" role="tab" aria-controls="student" aria-selected="false">
+                <i class="bi bi-mortarboard"></i> Student
+            </button>
+        </li>
+    </ul>
+    
+    <!-- Tab Content -->
+    <div class="tab-content" id="auditTabsContent">
+        <!-- All Logs Tab -->
+        <div class="tab-pane fade show active" id="all" role="tabpanel" aria-labelledby="all-tab">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">All Audit Logs</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Direct table instead of include -->
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>User</th>
+                                    <th>Role</th>
+                                    <th>Action</th>
+                                    <th>Details</th>
+                                    <th>IP Address</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in logs.items %}
+                                <tr>
+                                    <td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                    <td>
+                                        <strong>{{ log.user.full_name if log.user else 'Unknown' }}</strong>
+                                        <br>
+                                        <small class="text-muted">@{{ log.user.username if log.user else 'N/A' }}</small>
+                                        {% if log.user and log.user.roll_number %}
+                                            <br>
+                                            <small class="text-muted">Roll: {{ log.user.roll_number }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if log.user %}
+                                            <span class="badge bg-{{ 'primary' if log.user.role == 'admin' 
+                                                                  else 'info' if log.user.role == 'student'
+                                                                  else 'success' if log.user.role == 'program_head'
+                                                                  else 'warning' }}">
+                                                {{ log.user.role|replace('_', ' ')|title }}
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Unknown</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{{ 'success' if 'LOGIN' in log.action
+                                                              else 'danger' if 'LOGOUT' in log.action
+                                                              else 'info' if 'ADD' in log.action or 'CREATE' in log.action
+                                                              else 'warning' if 'EDIT' in log.action or 'UPDATE' in log.action
+                                                              else 'secondary' }}">
+                                            {{ log.action }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <small>{{ log.details }}</small>
+                                    </td>
+                                    <td><code>{{ log.ip_address or 'N/A' }}</code></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    {% if not logs.items %}
+                    <div class="text-center py-4">
+                        <i class="bi bi-journal-text fs-1 text-muted"></i>
+                        <p class="text-muted mt-2">No audit logs found</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Admin Logs Tab -->
+        <div class="tab-pane fade" id="admin" role="tabpanel" aria-labelledby="admin-tab">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Admin Logs</h5>
+                </div>
+                <div class="card-body">
+                    {% set admin_logs = logs.items|selectattr('user.role', 'equalto', 'admin')|list %}
+                    {% if admin_logs %}
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Timestamp</th>
+                                        <th>User</th>
+                                        <th>Role</th>
+                                        <th>Action</th>
+                                        <th>Details</th>
+                                        <th>IP Address</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for log in admin_logs %}
+                                    <tr>
+                                        <td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                        <td>
+                                            <strong>{{ log.user.full_name if log.user else 'Unknown' }}</strong>
+                                            <br>
+                                            <small class="text-muted">@{{ log.user.username if log.user else 'N/A' }}</small>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-primary">
+                                                Admin
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-{{ 'success' if 'LOGIN' in log.action
+                                                                  else 'danger' if 'LOGOUT' in log.action
+                                                                  else 'info' if 'ADD' in log.action or 'CREATE' in log.action
+                                                                  else 'warning' if 'EDIT' in log.action or 'UPDATE' in log.action
+                                                                  else 'secondary' }}">
+                                                {{ log.action }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <small>{{ log.details }}</small>
+                                        </td>
+                                        <td><code>{{ log.ip_address or 'N/A' }}</code></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-shield-lock fs-1 text-muted"></i>
+                            <p class="text-muted mt-2">No admin logs found</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Dean Logs Tab -->
+        <div class="tab-pane fade" id="dean" role="tabpanel" aria-labelledby="dean-tab">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Dean Logs</h5>
+                </div>
+                <div class="card-body">
+                    {% set dean_logs = logs.items|selectattr('user.role', 'equalto', 'dean')|list %}
+                    {% if dean_logs %}
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Timestamp</th>
+                                        <th>User</th>
+                                        <th>Role</th>
+                                        <th>Action</th>
+                                        <th>Details</th>
+                                        <th>IP Address</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for log in dean_logs %}
+                                    <tr>
+                                        <td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                        <td>
+                                            <strong>{{ log.user.full_name if log.user else 'Unknown' }}</strong>
+                                            <br>
+                                            <small class="text-muted">@{{ log.user.username if log.user else 'N/A' }}</small>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-warning text-dark">
+                                                Dean
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-{{ 'success' if 'LOGIN' in log.action
+                                                                  else 'danger' if 'LOGOUT' in log.action
+                                                                  else 'info' if 'ADD' in log.action or 'CREATE' in log.action
+                                                                  else 'warning' if 'EDIT' in log.action or 'UPDATE' in log.action
+                                                                  else 'secondary' }}">
+                                                {{ log.action }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <small>{{ log.details }}</small>
+                                        </td>
+                                        <td><code>{{ log.ip_address or 'N/A' }}</code></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-building fs-1 text-muted"></i>
+                            <p class="text-muted mt-2">No dean logs found</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Program Head Logs Tab -->
+        <div class="tab-pane fade" id="program-head" role="tabpanel" aria-labelledby="program-head-tab">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Program Head Logs</h5>
+                </div>
+                <div class="card-body">
+                    {% set program_head_logs = logs.items|selectattr('user.role', 'equalto', 'program_head')|list %}
+                    {% if program_head_logs %}
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Timestamp</th>
+                                        <th>User</th>
+                                        <th>Role</th>
+                                        <th>Action</th>
+                                        <th>Details</th>
+                                        <th>IP Address</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for log in program_head_logs %}
+                                    <tr>
+                                        <td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                        <td>
+                                            <strong>{{ log.user.full_name if log.user else 'Unknown' }}</strong>
+                                            <br>
+                                            <small class="text-muted">@{{ log.user.username if log.user else 'N/A' }}</small>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-success">
+                                                Program Head
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-{{ 'success' if 'LOGIN' in log.action
+                                                                  else 'danger' if 'LOGOUT' in log.action
+                                                                  else 'info' if 'ADD' in log.action or 'CREATE' in log.action
+                                                                  else 'warning' if 'EDIT' in log.action or 'UPDATE' in log.action
+                                                                  else 'secondary' }}">
+                                                {{ log.action }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <small>{{ log.details }}</small>
+                                        </td>
+                                        <td><code>{{ log.ip_address or 'N/A' }}</code></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-people fs-1 text-muted"></i>
+                            <p class="text-muted mt-2">No program head logs found</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Student Logs Tab -->
+        <div class="tab-pane fade" id="student" role="tabpanel" aria-labelledby="student-tab">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Student Logs</h5>
+                </div>
+                <div class="card-body">
+                    {% set student_logs = logs.items|selectattr('user.role', 'equalto', 'student')|list %}
+                    {% if student_logs %}
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Timestamp</th>
+                                        <th>User</th>
+                                        <th>Role</th>
+                                        <th>Action</th>
+                                        <th>Details</th>
+                                        <th>IP Address</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for log in student_logs %}
+                                    <tr>
+                                        <td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                        <td>
+                                            <strong>{{ log.user.full_name if log.user else 'Unknown' }}</strong>
+                                            <br>
+                                            <small class="text-muted">@{{ log.user.username if log.user else 'N/A' }}</small>
+                                            {% if log.user.roll_number %}
+                                                <br>
+                                                <small class="text-muted">Roll: {{ log.user.roll_number }}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-info text-dark">
+                                                Student
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-{{ 'success' if 'LOGIN' in log.action
+                                                                  else 'danger' if 'LOGOUT' in log.action
+                                                                  else 'info' if 'ADD' in log.action or 'CREATE' in log.action
+                                                                  else 'warning' if 'EDIT' in log.action or 'UPDATE' in log.action
+                                                                  else 'secondary' }}">
+                                                {{ log.action }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <small>{{ log.details }}</small>
+                                        </td>
+                                        <td><code>{{ log.ip_address or 'N/A' }}</code></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-mortarboard fs-1 text-muted"></i>
+                            <p class="text-muted mt-2">No student logs found</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Pagination -->
+    {% if logs.pages > 1 %}
+    <nav aria-label="Page navigation" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if logs.has_prev %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('audit_logs', page=logs.prev_num) }}">
+                        <i class="bi bi-chevron-left"></i> Previous
+                    </a>
+                </li>
+            {% endif %}
+            
+            {% for page_num in logs.iter_pages(left_edge=2, left_current=2, right_current=2, right_edge=2) %}
+                {% if page_num %}
+                    <li class="page-item {% if page_num == logs.page %}active{% endif %}">
+                        <a class="page-link" href="{{ url_for('audit_logs', page=page_num) }}">
+                            {{ page_num }}
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                {% endif %}
+            {% endfor %}
+            
+            {% if logs.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('audit_logs', page=logs.next_num) }}">
+                        Next <i class="bi bi-chevron-right"></i>
+                    </a>
+                </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+
+<style>
+.nav-tabs .nav-link {
+    color: #495057;
+    font-weight: 500;
+    padding: 0.75rem 1.25rem;
+}
+
+.nav-tabs .nav-link:hover {
+    border-color: #e9ecef #e9ecef #dee2e6;
+    isolation: isolate;
+}
+
+.nav-tabs .nav-link.active {
+    color: #0d6efd;
+    font-weight: 600;
+    border-bottom: 2px solid #0d6efd;
+}
+
+.nav-tabs .nav-link i {
+    margin-right: 0.5rem;
+}
+
+.card {
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.table th {
+    font-weight: 600;
+    color: #495057;
+    border-top: none;
+    background-color: #f8f9fa;
+}
+
+.badge {
+    font-size: 0.85rem;
+    padding: 0.5em 0.75em;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .nav-tabs .nav-link {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.9rem;
+    }
+    
+    .nav-tabs .nav-link i {
+        margin-right: 0.25rem;
+    }
+    
+    .table td, .table th {
+        font-size: 0.85rem;
+    }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Preserve active tab on page reload
+    const activeTab = localStorage.getItem('activeAuditTab');
+    if (activeTab) {
+        const tab = document.querySelector(`#auditTabs button[data-bs-target="${activeTab}"]`);
+        if (tab) {
+            const tabInstance = new bootstrap.Tab(tab);
+            tabInstance.show();
+        }
+    }
+    
+    // Store active tab when changed
+    const tabs = document.querySelectorAll('#auditTabs button[data-bs-toggle="tab"]');
+    tabs.forEach(tab => {
+        tab.addEventListener('shown.bs.tab', function(event) {
+            localStorage.setItem('activeAuditTab', event.target.dataset.bsTarget);
+        });
+    });
+});
+</script>
+{% endblock %}

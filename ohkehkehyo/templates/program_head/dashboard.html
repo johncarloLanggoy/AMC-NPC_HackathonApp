@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+
+{% block title %}Program Head Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <h2 class="mb-4"><i class="bi bi-people"></i> Program Head Dashboard</h2>
+    
+    <div class="alert alert-info mb-4">
+        <i class="bi bi-building"></i>
+        <strong>Department:</strong> {{ current_user.department }}
+        <br>
+        <small>You can only view and evaluate teachers from your department.</small>
+    </div>
+    
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-white bg-primary stat-card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-white-50">Teachers in Department</h6>
+                            <h2 class="mb-0">{{ total_teachers }}</h2>
+                        </div>
+                        <i class="bi bi-person-video3 fs-1 opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-success stat-card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-white-50">Evaluated</h6>
+                            <h2 class="mb-0">{{ evaluated_count }}</h2>
+                        </div>
+                        <i class="bi bi-check-circle-fill fs-1 opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-warning stat-card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-white-50">Pending</h6>
+                            <h2 class="mb-0">{{ pending_count }}</h2>
+                        </div>
+                        <i class="bi bi-hourglass-split fs-1 opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-info stat-card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-white-50">Dept Avg Score</h6>
+                            <h2 class="mb-0">{{ "%.2f"|format(dept_avg) }}</h2>
+                        </div>
+                        <i class="bi bi-star-fill fs-1 opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card shadow-sm">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-list-check"></i> Department Teachers ({{ current_user.department }})</h5>
+            <div>
+                <button class="btn btn-sm btn-outline-secondary" onclick="exportToCSV()">
+                    <i class="bi bi-download"></i> Export
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle" id="teachersTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Teacher</th>
+                            <th>Department</th>
+                            <th>Subjects</th>
+                            <th>Evaluations</th>
+                            <th>Average Score</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in teacher_stats %}
+                        <tr>
+                            <td>
+                                <strong>{{ item.teacher.name }}</strong>
+                                <br>
+                                <small class="text-muted">{{ item.teacher.email }}</small>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">{{ item.teacher.department }}</span>
+                            </td>
+                            <td>{{ item.teacher.subjects|truncate(50) }}</td>
+                            <td>
+                                <span class="badge bg-info">{{ item.eval_count }}</span>
+                            </td>
+                            <td>
+                                {% if item.eval_count > 0 %}
+                                    <span class="fw-bold fs-5">{{ item.avg_score }}</span>
+                                    <small class="text-muted">/5.00</small>
+                                    <div class="mt-1">
+                                        {% set score_percent = (item.avg_score / 5) * 100 %}
+                                        {% if score_percent >= 80 %}
+                                            <i class="bi bi-star-fill text-warning"></i>
+                                            <i class="bi bi-star-fill text-warning"></i>
+                                            <i class="bi bi-star-fill text-warning"></i>
+                                            <i class="bi bi-star-fill text-warning"></i>
+                                            <i class="bi bi-star-fill text-warning"></i>
+                                        {% elif score_percent >= 60 %}
+                                            <i class="bi bi-star-fill text-warning"></i>
+                                            <i class="bi bi-star-fill text-warning"></i>
+                                            <i class="bi bi-star-fill text-warning"></i>
+                                            <i class="bi bi-star-fill text-warning"></i>
+                                            <i class="bi bi-star text-muted"></i>
+                                        {% elif score_percent >= 40 %}
+                                            <i class="bi bi-star-fill text-warning"></i>
+                                            <i class="bi bi-star-fill text-warning"></i>
+                                            <i class="bi bi-star-fill text-warning"></i>
+                                            <i class="bi bi-star text-muted"></i>
+                                            <i class="bi bi-star text-muted"></i>
+                                        {% elif score_percent >= 20 %}
+                                            <i class="bi bi-star-fill text-warning"></i>
+                                            <i class="bi bi-star-fill text-warning"></i>
+                                            <i class="bi bi-star text-muted"></i>
+                                            <i class="bi bi-star text-muted"></i>
+                                            <i class="bi bi-star text-muted"></i>
+                                        {% else %}
+                                            <i class="bi bi-star-fill text-warning"></i>
+                                            <i class="bi bi-star text-muted"></i>
+                                            <i class="bi bi-star text-muted"></i>
+                                            <i class="bi bi-star text-muted"></i>
+                                            <i class="bi bi-star text-muted"></i>
+                                        {% endif %}
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted">No evaluations</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if item.evaluated %}
+                                    <span class="badge bg-success">Evaluated</span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark">Pending</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a href="{{ url_for('teacher_dashboard', teacher_id=item.teacher.id) }}" 
+                                       class="btn btn-sm btn-outline-info" title="View Stats">
+                                        <i class="bi bi-graph-up"></i>
+                                    </a>
+                                    {% if not item.evaluated %}
+                                        <a href="{{ url_for('program_head_evaluate', teacher_id=item.teacher.id) }}" 
+                                           class="btn btn-sm btn-primary" title="Evaluate">
+                                            <i class="bi bi-pencil"></i> Evaluate
+                                        </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            {% if not teacher_stats %}
+            <div class="text-center py-5">
+                <i class="bi bi-people fs-1 text-muted"></i>
+                <h5 class="text-muted mt-3">No Teachers Found in Your Department</h5>
+                <p class="text-muted">Please contact the administrator to add teachers to {{ current_user.department }} department.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+function exportToCSV() {
+    const rows = document.querySelectorAll('#teachersTable tbody tr');
+    if (rows.length === 0) {
+        alert('No data to export');
+        return;
+    }
+    
+    const csv = [];
+    csv.push('Teacher,Email,Department,Subjects,Evaluations,Average Score,Status');
+    
+    rows.forEach(row => {
+        const teacherName = row.querySelector('td:first-child strong')?.textContent.trim() || '';
+        const teacherEmail = row.querySelector('td:first-child small')?.textContent.trim() || '';
+        const department = row.querySelector('td:nth-child(2) .badge')?.textContent.trim() || '';
+        const subjects = row.querySelector('td:nth-child(3)')?.textContent.trim() || '';
+        const evaluations = row.querySelector('td:nth-child(4) .badge')?.textContent.trim() || '0';
+        const scoreCell = row.querySelector('td:nth-child(5) .fw-bold');
+        const score = scoreCell ? scoreCell.textContent.trim() : 'No evaluations';
+        const status = row.querySelector('td:nth-child(6) .badge')?.textContent.trim() || '';
+        
+        csv.push(`"${teacherName}","${teacherEmail}","${department}","${subjects}",${evaluations},"${score}","${status}"`);
+    });
+    
+    const csvContent = csv.join('\n');
+    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `program_head_department_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    
+    alert('CSV exported successfully!');
+}
+</script>
+
+<style>
+.stat-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+    border: none;
+    overflow: hidden;
+}
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+}
+.table td {
+    vertical-align: middle;
+}
+.badge {
+    font-size: 0.85rem;
+    padding: 0.5em 0.75em;
+}
+.btn-group .btn {
+    margin-right: 3px;
+}
+@media (max-width: 768px) {
+    .btn-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 3px;
+    }
+    .table td, .table th {
+        font-size: 0.85rem;
+    }
+}
+</style>
+{% endblock %}

@@ -1,0 +1,820 @@
+{% extends "base.html" %}
+
+{% block title %}Program Dashboard - {{ program.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-book"></i> Program Dashboard: {{ program.name }}</h2>
+        <div>
+            {% if current_user.role == 'admin' %}
+                <a href="{{ url_for('manage_program_teachers', program_id=program.id) }}" 
+                   class="btn btn-primary me-2">
+                    <i class="bi bi-person-plus"></i> Manage Teachers
+                </a>
+            {% endif %}
+            <button class="btn btn-success me-2" onclick="exportToCSV()">
+                <i class="bi bi-file-earmark-spreadsheet"></i> Export CSV
+            </button>
+            <button class="btn btn-outline-secondary" onclick="window.print()">
+                <i class="bi bi-printer"></i> Print
+            </button>
+        </div>
+    </div>
+    
+    <!-- Statistics Cards Row -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-white bg-primary stat-card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-white-50">Department</h6>
+                            <h2 class="mb-0 display-6">{{ program.department }}</h2>
+                        </div>
+                        <i class="bi bi-building fs-1 opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-success stat-card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-white-50">Teachers</h6>
+                            <h2 class="mb-0 display-6" id="totalTeachers">{{ program_stats.total_teachers }}</h2>
+                        </div>
+                        <i class="bi bi-people-fill fs-1 opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-info stat-card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-white-50">Average Score</h6>
+                            <h2 class="mb-0 display-6" id="averageScore">{{ program_stats.avg_score }}</h2>
+                        </div>
+                        <i class="bi bi-star-fill fs-1 opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-warning stat-card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-white-50">Completion Rate</h6>
+                            <h2 class="mb-0 display-6" id="completionRate">
+                                {% set total_teachers = program_stats.total_teachers %}
+                                {% set evaluated_teachers = program_stats.teachers_data|selectattr('eval_count', '>', 0)|list|length %}
+                                {% if total_teachers > 0 %}
+                                    {{ ((evaluated_teachers / total_teachers) * 100)|round|int }}%
+                                {% else %}
+                                    0%
+                                {% endif %}
+                            </h2>
+                        </div>
+                        <i class="bi bi-pie-chart-fill fs-1 opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Charts and Statistics Row -->
+    <div class="row mb-4">
+        <div class="col-md-7">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-bar-chart"></i> Teacher Performance</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="teacherChart" style="height: 350px; width: 100%;"></canvas>
+                    <div id="noDataMessage" class="text-center py-4" style="display: none;">
+                        <i class="bi bi-bar-chart fs-1 text-muted"></i>
+                        <p class="text-muted mt-2">No teacher data available for chart</p>
+                        <p class="text-muted small">Add teachers to this program to see performance data.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-5">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-graph-up"></i> Program Statistics</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center mb-4">
+                        <div class="col-6">
+                            <div class="border rounded p-3 bg-light">
+                                <h3 class="text-info mb-0" id="totalEvaluations">{{ program_stats.total_evaluations }}</h3>
+                                <small class="text-muted">Total Evaluations</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="border rounded p-3 bg-light">
+                                <h3 class="text-success mb-0" id="evaluatedTeachers">
+                                    {{ program_stats.teachers_data|selectattr('eval_count', '>', 0)|list|length }}
+                                </h3>
+                                <small class="text-muted">Teachers with Evals</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <table class="table table-borderless">
+                        <tr>
+                            <th><i class="bi bi-person-check"></i> Average Score:</th>
+                            <td class="text-end">
+                                <strong id="avgScoreDisplay">{{ program_stats.avg_score }}</strong> / 5.00
+                            </td>
+                        </tr>
+                        <tr>
+                            <th><i class="bi bi-hourglass-split"></i> Teachers Pending:</th>
+                            <td class="text-end">
+                                <strong id="pendingTeachers">
+                                    {{ program_stats.teachers_data|selectattr('eval_count', '==', 0)|list|length }}
+                                </strong>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th><i class="bi bi-trophy"></i> Top Performer:</th>
+                            <td class="text-end">
+                                {% set top_teacher = program_stats.teachers_data|sort(attribute='avg_score', reverse=true)|first %}
+                                {% if top_teacher and top_teacher.avg_score > 0 %}
+                                    <strong>{{ top_teacher.teacher.name|truncate(25) }}</strong>
+                                    <br><small class="text-muted">{{ top_teacher.avg_score }}/5.00</small>
+                                {% else %}
+                                    <span class="text-muted">No data yet</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th><i class="bi bi-calendar"></i> Last Updated:</th>
+                            <td class="text-end">
+                                <small>{{ now|default(datetime.now())|format_datetime }}</small>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Teachers Table -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap">
+            <h5 class="mb-0"><i class="bi bi-people-fill"></i> Teachers in Program</h5>
+            <div class="mt-2 mt-sm-0">
+                <button class="btn btn-sm btn-outline-secondary me-2" onclick="exportToCSV()">
+                    <i class="bi bi-download"></i> Export to CSV
+                </button>
+                {% if current_user.role == 'admin' %}
+                    <a href="{{ url_for('manage_program_teachers', program_id=program.id) }}" 
+                       class="btn btn-sm btn-primary">
+                        <i class="bi bi-pencil-square"></i> Edit Teachers
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="mb-3" id="teacherSearchContainer" style="display: none;">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-search"></i></span>
+                            <input type="text" class="form-control" id="teacherSearch" 
+                                   placeholder="Search by teacher name, subject, or department...">
+                            <button class="btn btn-outline-secondary" type="button" id="clearSearchBtn">
+                                <i class="bi bi-x-circle"></i> Clear
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="scoreFilter">
+                            <option value="all">All Scores</option>
+                            <option value="excellent">Excellent (4.5 - 5.0)</option>
+                            <option value="good">Good (3.5 - 4.49)</option>
+                            <option value="average">Average (2.5 - 3.49)</option>
+                            <option value="poor">Poor (Below 2.5)</option>
+                            <option value="no_eval">No Evaluations</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="sortBy">
+                            <option value="name">Sort by Name</option>
+                            <option value="score_high">Highest Score First</option>
+                            <option value="score_low">Lowest Score First</option>
+                            <option value="evaluations">Most Evaluations</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table table-hover align-middle" id="teachersTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Teacher</th>
+                            <th>Department</th>
+                            <th>Subjects</th>
+                            <th>Evaluations</th>
+                            <th>Average Score</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="teachersTableBody">
+                        {% for data in program_stats.teachers_data %}
+                        <tr data-teacher-id="{{ data.teacher.id }}" 
+                            data-score="{{ data.avg_score }}" 
+                            data-evals="{{ data.eval_count }}"
+                            data-name="{{ data.teacher.name|lower }}"
+                            data-subjects="{{ data.teacher.subjects|lower }}">
+                            <td>
+                                <strong>{{ data.teacher.name }}</strong>
+                                <br>
+                                <small class="text-muted">{{ data.teacher.email }}</small>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">{{ data.teacher.department }}</span>
+                            </td>
+                            <td>{{ data.teacher.subjects|truncate(40) }}</td>
+                            <td>
+                                <span class="badge bg-info rounded-pill">{{ data.eval_count }}</span>
+                            </td>
+                            <td>
+                                {% if data.eval_count > 0 %}
+                                    <div class="d-flex align-items-center">
+                                        <span class="fw-bold fs-5 me-2">{{ "%.2f"|format(data.avg_score) }}</span>
+                                        <small class="text-muted">/5.00</small>
+                                        <div class="ms-2">
+                                            {% set score_percent = (data.avg_score / 5) * 100 %}
+                                            {% if score_percent >= 80 %}
+                                                <i class="bi bi-star-fill text-warning"></i>
+                                                <i class="bi bi-star-fill text-warning"></i>
+                                                <i class="bi bi-star-fill text-warning"></i>
+                                                <i class="bi bi-star-fill text-warning"></i>
+                                                <i class="bi bi-star-fill text-warning"></i>
+                                            {% elif score_percent >= 60 %}
+                                                <i class="bi bi-star-fill text-warning"></i>
+                                                <i class="bi bi-star-fill text-warning"></i>
+                                                <i class="bi bi-star-fill text-warning"></i>
+                                                <i class="bi bi-star-fill text-warning"></i>
+                                                <i class="bi bi-star text-muted"></i>
+                                            {% elif score_percent >= 40 %}
+                                                <i class="bi bi-star-fill text-warning"></i>
+                                                <i class="bi bi-star-fill text-warning"></i>
+                                                <i class="bi bi-star-fill text-warning"></i>
+                                                <i class="bi bi-star text-muted"></i>
+                                                <i class="bi bi-star text-muted"></i>
+                                            {% elif score_percent >= 20 %}
+                                                <i class="bi bi-star-fill text-warning"></i>
+                                                <i class="bi bi-star-fill text-warning"></i>
+                                                <i class="bi bi-star text-muted"></i>
+                                                <i class="bi bi-star text-muted"></i>
+                                                <i class="bi bi-star text-muted"></i>
+                                            {% else %}
+                                                <i class="bi bi-star-fill text-warning"></i>
+                                                <i class="bi bi-star text-muted"></i>
+                                                <i class="bi bi-star text-muted"></i>
+                                                <i class="bi bi-star text-muted"></i>
+                                                <i class="bi bi-star text-muted"></i>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted">No evaluations yet</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if data.eval_count > 0 %}
+                                    <span class="badge bg-success">Evaluated</span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark">Pending</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a href="{{ url_for('teacher_dashboard', teacher_id=data.teacher.id) }}" 
+                                       class="btn btn-sm btn-outline-primary" title="View Dashboard">
+                                        <i class="bi bi-graph-up"></i>
+                                    </a>
+                                    {% if current_user.role == 'admin' %}
+                                        <button class="btn btn-sm btn-outline-danger remove-teacher-btn" 
+                                                data-teacher-id="{{ data.teacher.id }}"
+                                                data-teacher-name="{{ data.teacher.name }}"
+                                                title="Remove from Program">
+                                            <i class="bi bi-person-x"></i>
+                                        </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            {% if not program_stats.teachers_data %}
+            <div class="text-center py-5">
+                <i class="bi bi-people fs-1 text-muted"></i>
+                <h5 class="text-muted mt-3">No Teachers in This Program</h5>
+                <p class="text-muted">Click "Manage Teachers" to add teachers to this program.</p>
+                {% if current_user.role == 'admin' %}
+                    <a href="{{ url_for('manage_program_teachers', program_id=program.id) }}" 
+                       class="btn btn-primary mt-2">
+                        <i class="bi bi-person-plus"></i> Add Teachers Now
+                    </a>
+                {% endif %}
+            </div>
+            {% endif %}
+            
+            <!-- Pagination for large datasets -->
+            {% if program_stats.teachers_data|length > 10 %}
+            <nav class="mt-3">
+                <ul class="pagination justify-content-center" id="tablePagination">
+                    <li class="page-item disabled"><a class="page-link" href="#" id="prevPage">Previous</a></li>
+                    <li class="page-item active"><a class="page-link page-num" href="#" data-page="1">1</a></li>
+                    {% for i in range(2, ((program_stats.teachers_data|length / 10)|round(0, 'ceil')|int + 1)) %}
+                        <li class="page-item"><a class="page-link page-num" href="#" data-page="{{ i }}">{{ i }}</a></li>
+                    {% endfor %}
+                    <li class="page-item"><a class="page-link" href="#" id="nextPage">Next</a></li>
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Remove Teacher Confirmation Modal -->
+<div class="modal fade" id="removeTeacherModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle-fill"></i> Remove Teacher</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to remove <strong id="removeTeacherName"></strong> from <strong>{{ program.name }}</strong>?</p>
+                <p class="text-muted small">This will only remove the teacher from this program. The teacher's evaluations and data will not be deleted.</p>
+            </div>
+            <div class="modal-footer">
+                <form method="POST" action="{{ url_for('remove_teacher_from_program', program_id=program.id) }}" id="removeTeacherForm">
+                    <input type="hidden" name="teacher_id" id="removeTeacherId">
+                    <input type="hidden" name="program_id" value="{{ program.id }}">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Remove Teacher</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Check if we have teacher data
+    const teachersTableBody = document.getElementById('teachersTableBody');
+    const teacherChart = document.getElementById('teacherChart');
+    const noDataMessage = document.getElementById('noDataMessage');
+    
+    if (teachersTableBody && teachersTableBody.children.length > 0 && teachersTableBody.children[0].cells) {
+        // Show search if we have teachers
+        const searchContainer = document.getElementById('teacherSearchContainer');
+        if (searchContainer) {
+            searchContainer.style.display = 'block';
+        }
+        
+        // Prepare teacher data from DOM
+        const teacherData = [];
+        const rows = teachersTableBody.querySelectorAll('tr');
+        
+        rows.forEach(row => {
+            const teacherId = row.dataset.teacherId;
+            const teacherName = row.querySelector('td:first-child strong')?.textContent.trim() || '';
+            const score = parseFloat(row.dataset.score) || 0;
+            const evalCount = parseInt(row.dataset.evals) || 0;
+            
+            teacherData.push({
+                teacher: { id: teacherId, name: teacherName },
+                avg_score: score,
+                eval_count: evalCount
+            });
+        });
+        
+        // Create chart if there's data
+        const hasScores = teacherData.some(t => t.avg_score > 0);
+        if (hasScores) {
+            createTeacherChart(teacherData);
+        } else {
+            if (teacherChart) teacherChart.style.display = 'none';
+            if (noDataMessage) noDataMessage.style.display = 'block';
+        }
+        
+        // Add search functionality
+        const searchInput = document.getElementById('teacherSearch');
+        if (searchInput) {
+            searchInput.addEventListener('keyup', function() { filterAndSortTeachers(); });
+        }
+        
+        // Add score filter
+        const scoreFilter = document.getElementById('scoreFilter');
+        if (scoreFilter) {
+            scoreFilter.addEventListener('change', function() { filterAndSortTeachers(); });
+        }
+        
+        // Add sort functionality
+        const sortBy = document.getElementById('sortBy');
+        if (sortBy) {
+            sortBy.addEventListener('change', function() { filterAndSortTeachers(); });
+        }
+        
+        // Clear search button
+        const clearBtn = document.getElementById('clearSearchBtn');
+        if (clearBtn && searchInput) {
+            clearBtn.addEventListener('click', function() {
+                searchInput.value = '';
+                filterAndSortTeachers();
+            });
+        }
+        
+        // Pagination
+        setupPagination();
+        
+        // Remove teacher buttons
+        document.querySelectorAll('.remove-teacher-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const teacherId = this.dataset.teacherId;
+                const teacherName = this.dataset.teacherName;
+                document.getElementById('removeTeacherId').value = teacherId;
+                document.getElementById('removeTeacherName').textContent = teacherName;
+                new bootstrap.Modal(document.getElementById('removeTeacherModal')).show();
+            });
+        });
+        
+    } else {
+        // Hide chart and show no data message
+        if (teacherChart) teacherChart.style.display = 'none';
+        if (noDataMessage) noDataMessage.style.display = 'block';
+    }
+});
+
+// Function to create teacher performance chart
+function createTeacherChart(teacherData) {
+    const ctx = document.getElementById('teacherChart');
+    if (!ctx) return;
+    
+    // Sort by score for better visualization
+    const sortedData = [...teacherData].sort((a, b) => b.avg_score - a.avg_score);
+    
+    // Get names for labels
+    const labels = sortedData.map(d => {
+        const nameParts = d.teacher.name.split(' ');
+        return nameParts.length > 1 ? nameParts[nameParts.length - 1] : d.teacher.name;
+    });
+    
+    const scores = sortedData.map(d => d.avg_score);
+    const colors = sortedData.map(d => {
+        if (d.avg_score >= 4.5) return '#198754';
+        if (d.avg_score >= 3.5) return '#0d6efd';
+        if (d.avg_score >= 2.5) return '#ffc107';
+        return '#dc3545';
+    });
+    
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Average Score',
+                data: scores,
+                backgroundColor: colors,
+                borderRadius: 8,
+                borderWidth: 0,
+                barPercentage: 0.7,
+                categoryPercentage: 0.8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const data = sortedData[context.dataIndex];
+                            return [
+                                `Score: ${data.avg_score.toFixed(2)} / 5.00`,
+                                `Evaluations: ${data.eval_count}`
+                            ];
+                        },
+                        title: function(context) {
+                            return sortedData[context[0].dataIndex].teacher.name;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 5,
+                    title: { display: true, text: 'Average Score' },
+                    grid: { color: 'rgba(0,0,0,0.05)' },
+                    ticks: { stepSize: 1, callback: (v) => v + '/5' }
+                },
+                x: {
+                    title: { display: true, text: 'Teachers' },
+                    grid: { display: false }
+                }
+            }
+        }
+    });
+}
+
+// Combined filter and sort function
+function filterAndSortTeachers() {
+    const searchTerm = document.getElementById('teacherSearch')?.value.toLowerCase() || '';
+    const scoreFilter = document.getElementById('scoreFilter')?.value || 'all';
+    const sortBy = document.getElementById('sortBy')?.value || 'name';
+    
+    const tbody = document.getElementById('teachersTableBody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    
+    // Filter rows
+    let visibleRows = rows.filter(row => {
+        const teacherName = row.dataset.name || '';
+        const subjects = row.dataset.subjects || '';
+        const score = parseFloat(row.dataset.score) || 0;
+        const evalCount = parseInt(row.dataset.evals) || 0;
+        
+        // Search filter
+        const matchesSearch = teacherName.includes(searchTerm) || subjects.includes(searchTerm);
+        if (!matchesSearch) return false;
+        
+        // Score filter
+        if (scoreFilter === 'excellent') return score >= 4.5;
+        if (scoreFilter === 'good') return score >= 3.5 && score < 4.5;
+        if (scoreFilter === 'average') return score >= 2.5 && score < 3.5;
+        if (scoreFilter === 'poor') return score > 0 && score < 2.5;
+        if (scoreFilter === 'no_eval') return evalCount === 0;
+        
+        return true;
+    });
+    
+    // Sort rows
+    visibleRows.sort((a, b) => {
+        const aScore = parseFloat(a.dataset.score) || 0;
+        const bScore = parseFloat(b.dataset.score) || 0;
+        const aEvals = parseInt(a.dataset.evals) || 0;
+        const bEvals = parseInt(b.dataset.evals) || 0;
+        const aName = a.dataset.name || '';
+        const bName = b.dataset.name || '';
+        
+        if (sortBy === 'score_high') return bScore - aScore;
+        if (sortBy === 'score_low') return aScore - bScore;
+        if (sortBy === 'evaluations') return bEvals - aEvals;
+        return aName.localeCompare(bName);
+    });
+    
+    // Update table
+    tbody.innerHTML = '';
+    visibleRows.forEach(row => tbody.appendChild(row));
+    
+    // Show/hide no results message
+    const noResultsRow = document.getElementById('noTeachersResults');
+    if (visibleRows.length === 0) {
+        if (!noResultsRow) {
+            const tr = document.createElement('tr');
+            tr.id = 'noTeachersResults';
+            tr.innerHTML = '<td colspan="7" class="text-center py-4"><i class="bi bi-search fs-1 text-muted"></i><p class="text-muted mt-2">No teachers match your filters</p><button class="btn btn-sm btn-outline-primary mt-2" onclick="clearFilters()">Clear Filters</button></td>';
+            tbody.appendChild(tr);
+        }
+    } else if (noResultsRow) {
+        noResultsRow.remove();
+    }
+    
+    // Update pagination after filtering
+    setupPagination();
+}
+
+// Clear all filters
+function clearFilters() {
+    const searchInput = document.getElementById('teacherSearch');
+    const scoreFilter = document.getElementById('scoreFilter');
+    const sortBy = document.getElementById('sortBy');
+    
+    if (searchInput) searchInput.value = '';
+    if (scoreFilter) scoreFilter.value = 'all';
+    if (sortBy) sortBy.value = 'name';
+    
+    filterAndSortTeachers();
+}
+
+// Pagination setup
+function setupPagination() {
+    const rowsPerPage = 10;
+    const tbody = document.getElementById('teachersTableBody');
+    const rows = tbody.querySelectorAll('tr:not(#noTeachersResults)');
+    const totalPages = Math.ceil(rows.length / rowsPerPage);
+    
+    if (totalPages <= 1) {
+        const pagination = document.getElementById('tablePagination');
+        if (pagination) pagination.style.display = 'none';
+        return;
+    }
+    
+    // Show all rows initially, then paginate
+    rows.forEach((row, index) => {
+        const pageNum = Math.floor(index / rowsPerPage) + 1;
+        row.dataset.page = pageNum;
+        row.style.display = pageNum === 1 ? '' : 'none';
+    });
+    
+    // Update pagination buttons
+    const prevBtn = document.getElementById('prevPage');
+    const nextBtn = document.getElementById('nextPage');
+    const pageLinks = document.querySelectorAll('.page-num');
+    
+    let currentPage = 1;
+    
+    pageLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            currentPage = parseInt(this.dataset.page);
+            rows.forEach(row => {
+                row.style.display = (parseInt(row.dataset.page) === currentPage) ? '' : 'none';
+            });
+            updatePaginationActive(currentPage);
+        });
+    });
+    
+    if (prevBtn) {
+        prevBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (currentPage > 1) {
+                currentPage--;
+                rows.forEach(row => {
+                    row.style.display = (parseInt(row.dataset.page) === currentPage) ? '' : 'none';
+                });
+                updatePaginationActive(currentPage);
+            }
+        });
+    }
+    
+    if (nextBtn) {
+        nextBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (currentPage < totalPages) {
+                currentPage++;
+                rows.forEach(row => {
+                    row.style.display = (parseInt(row.dataset.page) === currentPage) ? '' : 'none';
+                });
+                updatePaginationActive(currentPage);
+            }
+        });
+    }
+}
+
+function updatePaginationActive(currentPage) {
+    const pageLinks = document.querySelectorAll('.page-num');
+    pageLinks.forEach(link => {
+        const page = parseInt(link.dataset.page);
+        if (page === currentPage) {
+            link.parentElement.classList.add('active');
+        } else {
+            link.parentElement.classList.remove('active');
+        }
+    });
+}
+
+// Function to export table to CSV
+function exportToCSV() {
+    const rows = document.querySelectorAll('#teachersTable tbody tr:not(#noTeachersResults)');
+    if (rows.length === 0) {
+        showNotification('No data to export', 'warning');
+        return;
+    }
+    
+    const csv = [];
+    csv.push('Teacher,Email,Department,Subjects,Evaluations,Average Score,Status');
+    
+    rows.forEach(row => {
+        if (row.style.display !== 'none') {
+            const teacherName = row.querySelector('td:first-child strong')?.textContent.trim() || '';
+            const teacherEmail = row.querySelector('td:first-child small')?.textContent.trim() || '';
+            const department = row.querySelector('td:nth-child(2) .badge')?.textContent.trim() || '';
+            const subjects = row.querySelector('td:nth-child(3)')?.textContent.trim() || '';
+            const evaluations = row.querySelector('td:nth-child(4) .badge')?.textContent.trim() || '0';
+            const scoreCell = row.querySelector('td:nth-child(5) .fw-bold');
+            const score = scoreCell ? scoreCell.textContent.trim() : 'No evaluations';
+            const status = row.querySelector('td:nth-child(6) .badge')?.textContent.trim() || '';
+            
+            csv.push(`"${teacherName}","${teacherEmail}","${department}","${subjects}",${evaluations},"${score}","${status}"`);
+        }
+    });
+    
+    const csvContent = csv.join('\n');
+    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${document.title.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    
+    showNotification('CSV exported successfully!', 'success');
+}
+
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3`;
+    notification.style.zIndex = '9999';
+    notification.style.minWidth = '300px';
+    notification.style.maxWidth = '500px';
+    notification.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+    notification.innerHTML = `
+        <i class="bi bi-${type === 'success' ? 'check-circle' : type === 'warning' ? 'exclamation-triangle' : 'info-circle'} me-2"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.body.appendChild(notification);
+    setTimeout(() => notification.remove(), 5000);
+}
+
+// Auto-refresh statistics every 30 seconds (optional)
+let autoRefreshInterval;
+function startAutoRefresh() {
+    autoRefreshInterval = setInterval(() => {
+        location.reload();
+    }, 30000);
+}
+
+// Stop auto-refresh when page is hidden
+document.addEventListener('visibilitychange', function() {
+    if (document.hidden) {
+        if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+    } else {
+        startAutoRefresh();
+    }
+});
+
+// Start auto-refresh (comment out if not needed)
+// startAutoRefresh();
+</script>
+
+<style>
+.stat-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+    border: none;
+    overflow: hidden;
+}
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+}
+.position-fixed {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+}
+.table td {
+    vertical-align: middle;
+}
+.badge {
+    font-size: 0.85rem;
+    padding: 0.5em 0.75em;
+}
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+canvas {
+    animation: fadeIn 0.5s ease-out;
+}
+#teacherSearch, #scoreFilter, #sortBy {
+    max-width: 100%;
+}
+.btn-group .btn {
+    margin-right: 3px;
+}
+@media (max-width: 768px) {
+    .position-fixed { left: 20px; right: 20px; min-width: auto; }
+    .btn-group { display: flex; flex-wrap: wrap; gap: 3px; }
+    .table td, .table th { font-size: 0.85rem; }
+    .card-header .d-flex { flex-direction: column; gap: 10px; }
+    .card-header .d-flex .btn { width: 100%; }
+}
+@media print {
+    .btn, .no-print, #teacherSearchContainer, .remove-teacher-btn, .btn-group { display: none !important; }
+    .card { border: 1px solid #ddd !important; box-shadow: none !important; }
+    canvas { max-height: 200px; }
+}
+</style>
+{% endblock %}

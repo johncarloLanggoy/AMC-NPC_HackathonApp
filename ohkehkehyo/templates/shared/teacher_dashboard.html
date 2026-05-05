@@ -1,0 +1,672 @@
+{% extends "base.html" %}
+
+{% block title %}Teacher Dashboard - {{ teacher.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4" id="teacher-dashboard" data-teacher-id="{{ teacher.id }}" data-stats='{{ stats|tojson }}'>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-person-badge"></i> Teacher Dashboard: {{ teacher.name }}</h2>
+        <div>
+            <button class="btn btn-success me-2" id="exportCsvBtn">
+                <i class="bi bi-file-earmark-spreadsheet"></i> Export CSV
+            </button>
+            <button class="btn btn-danger me-2" id="exportPdfBtn">
+                <i class="bi bi-file-earmark-pdf"></i> Export PDF
+            </button>
+            <button class="btn btn-outline-secondary" onclick="window.print()">
+                <i class="bi bi-printer"></i> Print
+            </button>
+        </div>
+    </div>
+    
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Teacher Information</h5>
+                    <table class="table table-borderless">
+                        <tr>
+                            <th width="120">Name:</th>
+                            <td>{{ teacher.name }}</td>
+                        </tr>
+                        <tr>
+                            <th>Email:</th>
+                            <td>{{ teacher.email }}</td>
+                        </tr>
+                        <tr>
+                            <th>Department:</th>
+                            <td>{{ teacher.department }}</td>
+                        </tr>
+                        <tr>
+                            <th>Subjects:</th>
+                            <td>{{ teacher.subjects }}</td>
+                        </tr>
+                        <tr>
+                            <th>Join Date:</th>
+                            <td>{{ teacher.joining_date.strftime('%Y-%m-%d') }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Score Summary</h5>
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <div class="display-6" id="studentScore">{{ "%.2f"|format(stats.scores_by_role.student.avg or 0) }}</div>
+                            <small class="text-muted">Student Avg</small>
+                        </div>
+                        <div class="col-4">
+                            <div class="display-6" id="programHeadScore">{{ "%.2f"|format(stats.scores_by_role.program_head.avg or 0) }}</div>
+                            <small class="text-muted">Program Head</small>
+                        </div>
+                        <div class="col-4">
+                            <div class="display-6" id="deanScore">{{ "%.2f"|format(stats.scores_by_role.dean.avg or 0) }}</div>
+                            <small class="text-muted">Dean</small>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="text-center">
+                        <div class="display-4" id="overallScore">
+                            {{ "%.2f"|format((stats.scores_by_role.student.avg or 0) * 0.5 + 
+                                            (stats.scores_by_role.program_head.avg or 0) * 0.3 + 
+                                            (stats.scores_by_role.dean.avg or 0) * 0.2) }}
+                        </div>
+                        <small class="text-muted">Weighted Final Score / 5.00</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Scores by Category</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="categoryChart" style="height: 300px;"></canvas>
+                    <div id="categoryNoData" class="text-center py-4" style="display: none;">
+                        <i class="bi bi-bar-chart fs-1 text-muted"></i>
+                        <p class="text-muted mt-2">No category data available</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Monthly Trend</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="trendChart" style="height: 300px;"></canvas>
+                    <div id="trendNoData" class="text-center py-4" style="display: none;">
+                        <i class="bi bi-graph-up fs-1 text-muted"></i>
+                        <p class="text-muted mt-2">No trend data available</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Recent Evaluations</h5>
+            <button class="btn btn-sm btn-outline-secondary" onclick="exportEvaluationsToCSV()">
+                <i class="bi bi-download"></i> Export to CSV
+            </button>
+        </div>
+        <div class="card-body">
+            <div class="mb-3" id="evaluationSearchContainer" style="display: none;">
+                <input type="text" class="form-control" id="evaluationSearch" 
+                       placeholder="Search evaluations by role or comments...">
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle" id="evaluationsTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Date</th>
+                            <th>Evaluator Role</th>
+                            <th>Raw Score</th>
+                            <th>Weighted Score</th>
+                            <th>Comments</th>
+                        </tr>
+                    </thead>
+                    <tbody id="evaluationsTableBody">
+                        {% for eval in evaluations %}
+                        <tr data-eval-id="{{ eval.id }}" data-role="{{ eval.evaluator_role }}" data-raw="{{ eval.raw_score }}" data-weighted="{{ eval.weighted_score }}">
+                            <td>{{ eval.submitted_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>
+                                <span class="badge bg-{{ 'info' if eval.evaluator_role == 'student' 
+                                                      else 'success' if eval.evaluator_role == 'program_head'
+                                                      else 'warning' }}">
+                                    {{ eval.evaluator_role|replace('_', ' ')|title }}
+                                </span>
+                            </td>
+                            <td>{{ "%.2f"|format(eval.raw_score) }} / 5.00</td>
+                            <td>{{ "%.2f"|format(eval.weighted_score) }}</td>
+                            <td>
+                                {% if eval.comments %}
+                                    <button class="btn btn-sm btn-link view-comments-btn" 
+                                            data-comments="{{ eval.comments }}"
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#commentsModal">
+                                        <i class="bi bi-chat"></i> View
+                                    </button>
+                                {% else %}
+                                    <span class="text-muted">No comments</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            {% if not evaluations %}
+            <div class="text-center py-4">
+                <i class="bi bi-inbox fs-1 text-muted"></i>
+                <p class="text-muted mt-2">No evaluations yet</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Comments Modal -->
+<div class="modal fade" id="commentsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Evaluation Comments</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p id="commentsText"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    // Get teacher ID from data attribute
+    const dashboard = document.getElementById('teacher-dashboard');
+    const teacherId = dashboard ? dashboard.dataset.teacherId : null;
+    
+    // Get stats from data attribute
+    let stats = {};
+    try {
+        if (dashboard && dashboard.dataset.stats) {
+            stats = JSON.parse(dashboard.dataset.stats);
+        }
+    } catch (e) {
+        console.log('No stats data available');
+    }
+    
+    // Setup export buttons
+    setupExportButtons(teacherId);
+    
+    // Check if we have evaluations
+    const evaluationsTableBody = document.getElementById('evaluationsTableBody');
+    if (evaluationsTableBody && evaluationsTableBody.children.length > 0) {
+        const searchContainer = document.getElementById('evaluationSearchContainer');
+        if (searchContainer) {
+            searchContainer.style.display = 'block';
+        }
+        
+        const searchInput = document.getElementById('evaluationSearch');
+        if (searchInput) {
+            searchInput.addEventListener('keyup', filterEvaluations);
+        }
+    }
+    
+    // Setup comment view buttons
+    document.querySelectorAll('.view-comments-btn').forEach(function(button) {
+        button.addEventListener('click', function() {
+            const comments = this.dataset.comments;
+            document.getElementById('commentsText').textContent = comments;
+        });
+    });
+    
+    // Check if we have any stats
+    const hasStats = stats.total_evaluations > 0;
+    
+    if (hasStats && stats.category_averages) {
+        const categoryData = {
+            teaching_clarity: stats.category_averages.teaching_clarity || 0,
+            engagement: stats.category_averages.engagement || 0,
+            fairness: stats.category_averages.fairness || 0,
+            curriculum: stats.category_averages.curriculum || 0,
+            assessment: stats.category_averages.assessment || 0,
+            mentoring: stats.category_averages.mentoring || 0,
+            attendance: stats.category_averages.attendance || 0,
+            commitment: stats.category_averages.commitment || 0,
+            teaching_quality: stats.category_averages.teaching_quality || 0
+        };
+        
+        createCategoryChart(categoryData);
+        loadTeacherTrendsSilently(teacherId);
+    } else {
+        showNoCategoryData();
+        showNoTrendData();
+    }
+    
+    // Function to load teacher trends silently
+    function loadTeacherTrendsSilently(id) {
+        if (!id) return;
+        
+        fetch('/api/teacher/' + id + '/trends')
+            .then(function(response) {
+                if (!response.ok) {
+                    throw new Error('No trend data');
+                }
+                return response.json();
+            })
+            .then(function(data) {
+                if (data && data.months && data.months.length > 0) {
+                    createTrendChart(data);
+                } else {
+                    showNoTrendData();
+                }
+            })
+            .catch(function() {
+                showNoTrendData();
+            });
+    }
+    
+    function showNoCategoryData() {
+        const categoryChart = document.getElementById('categoryChart');
+        const categoryNoData = document.getElementById('categoryNoData');
+        if (categoryChart && categoryNoData) {
+            categoryChart.style.display = 'none';
+            categoryNoData.style.display = 'block';
+            categoryNoData.innerHTML = '<i class="bi bi-bar-chart fs-1 text-muted"></i><p class="text-muted mt-2">No category data available yet</p>';
+        }
+    }
+    
+    function showNoTrendData() {
+        const trendChart = document.getElementById('trendChart');
+        const trendNoData = document.getElementById('trendNoData');
+        if (trendChart && trendNoData) {
+            trendChart.style.display = 'none';
+            trendNoData.style.display = 'block';
+            trendNoData.innerHTML = '<i class="bi bi-graph-up fs-1 text-muted"></i><p class="text-muted mt-2">No trend data available yet</p>';
+        }
+    }
+    
+    // Function to create category chart (RADAR CHART - ORIGINAL)
+    function createCategoryChart(categoryData) {
+        const ctx = document.getElementById('categoryChart');
+        const noDataMsg = document.getElementById('categoryNoData');
+        
+        if (!ctx) return;
+        
+        const data = [
+            categoryData.teaching_clarity || 0,
+            categoryData.engagement || 0,
+            categoryData.fairness || 0,
+            categoryData.curriculum || 0,
+            categoryData.assessment || 0,
+            categoryData.mentoring || 0,
+            categoryData.attendance || 0,
+            categoryData.commitment || 0,
+            categoryData.teaching_quality || 0
+        ];
+        
+        const hasData = data.some(function(value) {
+            return value > 0;
+        });
+        
+        if (!hasData) {
+            ctx.style.display = 'none';
+            if (noDataMsg) {
+                noDataMsg.style.display = 'block';
+                noDataMsg.innerHTML = '<i class="bi bi-bar-chart fs-1 text-muted"></i><p class="text-muted mt-2">No category data available yet</p>';
+            }
+            return;
+        }
+        
+        ctx.style.display = 'block';
+        if (noDataMsg) noDataMsg.style.display = 'none';
+        
+        new Chart(ctx, {
+            type: 'radar',
+            data: {
+                labels: [
+                    'Teaching Clarity', 
+                    'Engagement', 
+                    'Fairness', 
+                    'Curriculum', 
+                    'Assessment', 
+                    'Mentoring',
+                    'Attendance', 
+                    'Commitment', 
+                    'Teaching Quality'
+                ],
+                datasets: [{
+                    label: 'Average Score',
+                    data: data,
+                    backgroundColor: 'rgba(13, 110, 253, 0.2)',
+                    borderColor: '#0d6efd',
+                    pointBackgroundColor: '#0d6efd',
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: '#0d6efd',
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    r: {
+                        beginAtZero: true,
+                        max: 5,
+                        ticks: {
+                            stepSize: 1,
+                            callback: function(value) {
+                                return value + '/5';
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(0,0,0,0.1)'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return 'Score: ' + context.raw.toFixed(2) + ' / 5.00';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    // Function to create trend chart
+    function createTrendChart(monthlyData) {
+        const ctx = document.getElementById('trendChart');
+        const noDataMsg = document.getElementById('trendNoData');
+        
+        if (!ctx) return;
+        
+        if (!monthlyData.months || monthlyData.months.length === 0) {
+            ctx.style.display = 'none';
+            if (noDataMsg) {
+                noDataMsg.style.display = 'block';
+                noDataMsg.innerHTML = '<i class="bi bi-graph-up fs-1 text-muted"></i><p class="text-muted mt-2">No trend data available yet</p>';
+            }
+            return;
+        }
+        
+        ctx.style.display = 'block';
+        if (noDataMsg) noDataMsg.style.display = 'none';
+        
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: monthlyData.months,
+                datasets: [{
+                    label: 'Monthly Average',
+                    data: monthlyData.scores,
+                    borderColor: '#0d6efd',
+                    backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    pointBackgroundColor: '#0d6efd',
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: '#0d6efd',
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return 'Score: ' + context.parsed.y.toFixed(2) + ' / 5.00';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 5,
+                        grid: {
+                            color: 'rgba(0,0,0,0.05)'
+                        },
+                        title: {
+                            display: true,
+                            text: 'Average Score'
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                return value + '/5';
+                            }
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        title: {
+                            display: true,
+                            text: 'Month'
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    // Function to setup export buttons
+    function setupExportButtons(id) {
+        const csvBtn = document.getElementById('exportCsvBtn');
+        const pdfBtn = document.getElementById('exportPdfBtn');
+        
+        if (csvBtn) {
+            csvBtn.addEventListener('click', function() {
+                exportReport(id, 'csv');
+            });
+        }
+        
+        if (pdfBtn) {
+            pdfBtn.addEventListener('click', function() {
+                exportReport(id, 'pdf');
+            });
+        }
+    }
+    
+    // Function to filter evaluations
+    function filterEvaluations() {
+        const searchInput = document.getElementById('evaluationSearch');
+        if (!searchInput) return;
+        
+        const searchTerm = searchInput.value.toLowerCase();
+        const rows = document.querySelectorAll('#evaluationsTable tbody tr');
+        let visibleCount = 0;
+        
+        rows.forEach(function(row) {
+            if (row.id === 'noEvalResults') return;
+            
+            const role = row.querySelector('td:nth-child(2)').textContent.toLowerCase();
+            const comments = row.querySelector('td:nth-child(5)').textContent.toLowerCase();
+            
+            if (role.includes(searchTerm) || comments.includes(searchTerm)) {
+                row.style.display = '';
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+        
+        const noResultsRow = document.getElementById('noEvalResults');
+        if (visibleCount === 0) {
+            if (!noResultsRow) {
+                const tbody = document.getElementById('evaluationsTableBody');
+                const tr = document.createElement('tr');
+                tr.id = 'noEvalResults';
+                tr.innerHTML = '<td colspan="5" class="text-center py-4"><i class="bi bi-search fs-1 text-muted"></i><p class="text-muted mt-2">No evaluations match your search</p></td>';
+                tbody.appendChild(tr);
+            }
+        } else if (noResultsRow) {
+            noResultsRow.remove();
+        }
+    }
+    
+    // Function to export report
+    function exportReport(id, format) {
+        if (!id) {
+            console.log('Teacher ID not found');
+            return;
+        }
+        window.location.href = '/export/teacher/' + id + '/' + format;
+    }
+    
+    // Function to export evaluations to CSV
+    window.exportEvaluationsToCSV = function() {
+        const rows = document.querySelectorAll('#evaluationsTable tbody tr');
+        if (rows.length === 0) {
+            alert('No data to export');
+            return;
+        }
+        
+        const csv = [];
+        csv.push('Date,Evaluator Role,Raw Score,Weighted Score,Comments');
+        
+        rows.forEach(function(row) {
+            if (row.id !== 'noEvalResults' && row.style.display !== 'none') {
+                const date = row.querySelector('td:first-child').textContent.trim();
+                const role = row.querySelector('td:nth-child(2)').textContent.trim();
+                const rawScore = row.querySelector('td:nth-child(3)').textContent.trim();
+                const weightedScore = row.querySelector('td:nth-child(4)').textContent.trim();
+                const comments = row.querySelector('td:nth-child(5)').textContent.trim();
+                
+                csv.push('"' + date + '","' + role + '","' + rawScore + '","' + weightedScore + '","' + comments + '"');
+            }
+        });
+        
+        const csvContent = csv.join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'teacher_evaluations_' + new Date().toISOString().split('T')[0] + '.csv';
+        a.click();
+        window.URL.revokeObjectURL(url);
+    };
+})();
+</script>
+
+<style>
+.position-fixed {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    min-width: 300px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+.badge {
+    font-size: 0.85rem;
+    padding: 0.5em 0.75em;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+canvas {
+    animation: fadeIn 0.5s ease-out;
+}
+
+#evaluationSearch {
+    max-width: 300px;
+}
+
+@media (max-width: 768px) {
+    .position-fixed {
+        left: 20px;
+        right: 20px;
+        min-width: auto;
+    }
+    
+    #evaluationSearch {
+        max-width: 100%;
+    }
+    
+    .display-4 {
+        font-size: 2rem;
+    }
+    
+    .display-6 {
+        font-size: 1.25rem;
+    }
+}
+
+@media print {
+    .btn, .no-print, #evaluationSearchContainer {
+        display: none !important;
+    }
+    
+    .card {
+        border: 1px solid #ddd !important;
+        box-shadow: none !important;
+        page-break-inside: avoid;
+    }
+    
+    canvas {
+        max-height: 200px;
+        page-break-inside: avoid;
+    }
+    
+    .table {
+        font-size: 0.9rem;
+    }
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(13, 110, 253, 0.05);
+    cursor: pointer;
+}
+
+.display-6, .display-4 {
+    transition: all 0.3s ease;
+}
+
+.display-6:hover, .display-4:hover {
+    transform: scale(1.05);
+    color: #0d6efd;
+}
+</style>
+{% endblock %}

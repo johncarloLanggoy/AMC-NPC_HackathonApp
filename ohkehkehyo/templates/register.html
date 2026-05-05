@@ -1,0 +1,641 @@
+{% extends "base.html" %}
+
+{% block title %}Register - Student Account{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white text-center py-3">
+                    <h4 class="mb-0"><i class="bi bi-person-plus"></i> Student Registration</h4>
+                </div>
+                <div class="card-body p-4">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle-fill"></i>
+                        Create a student account to evaluate your teachers.
+                    </div>
+                    
+                    <form method="POST" action="{{ url_for('register') }}" id="registerForm" onsubmit="return validateForm()">
+                        <!-- Username -->
+                        <div class="mb-3">
+                            <label for="username" class="form-label">Username *</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-person-circle"></i></span>
+                                <input type="text" class="form-control" id="username" name="username" 
+                                       required minlength="5" maxlength="20" 
+                                       pattern="[a-zA-Z0-9_]+" 
+                                       title="Username can only contain letters, numbers, and underscores"
+                                       placeholder="Choose a username (5-20 characters)"
+                                       onblur="checkUsername(this.value)">
+                            </div>
+                            <div id="usernameFeedback" class="invalid-feedback"></div>
+                        </div>
+                        
+                        <!-- Student ID -->
+                        <div class="mb-3">
+                            <label for="student_id" class="form-label">Student ID *</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
+                                <input type="text" class="form-control" id="student_id" name="student_id" 
+                                       required minlength="5" maxlength="20"
+                                       placeholder="e.g., 2023-07-00089"
+                                       onblur="checkStudentId(this.value)">
+                            </div>
+                            <div id="studentIdFeedback" class="invalid-feedback"></div>
+                        </div>
+                        
+                        <!-- Full Name -->
+                        <div class="mb-3">
+                            <label for="full_name" class="form-label">Full Name *</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-person"></i></span>
+                                <input type="text" class="form-control" id="full_name" name="full_name" 
+                                    required minlength="2" maxlength="100"
+                                    pattern="[a-zA-Z\s\-',.]+"
+                                    title="Name can only contain letters, spaces, hyphens, apostrophes, commas, and periods"
+                                    placeholder="Enter your full name"
+                                    onblur="checkFullName(this.value)">
+                            </div>
+                            <div id="fullNameFeedback" class="invalid-feedback"></div>
+                        </div>
+                        
+                        <!-- Year & Section Dropdown -->
+                        <div class="mb-3">
+                            <label for="section_id" class="form-label">Year & Section *</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-grid-3x3-gap-fill"></i></span>
+                                <select class="form-select" id="section_id" name="section_id" required onchange="updateCourseInfo()">
+                                    <option value="">Select your section...</option>
+                                    {% for section in sections %}
+                                    <option value="{{ section.id }}" 
+                                            data-program="{{ section.program }}"
+                                            data-year="{{ section.year_level }}"
+                                            data-name="{{ section.name }}">
+                                        {{ section.name }} - {{ section.program }} (Year {{ section.year_level }})
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <small class="text-muted">Select your section from the list</small>
+                            <div id="selectedSectionInfo" class="alert alert-info mt-2 py-2" style="display: none;">
+                                <i class="bi bi-check-circle-fill"></i> You will be enrolled in <strong id="selectedSectionName"></strong>
+                            </div>
+                        </div>
+                        
+                        <!-- Hidden field for course -->
+                        <input type="hidden" id="course" name="course">
+                        
+                        <!-- Regular/Irregular Student Option -->
+                        <div class="mb-3">
+                            <label class="form-label">Student Type *</label>
+                            <div class="d-flex gap-3">
+                                <div class="form-check">
+                                    <input type="radio" class="form-check-input" name="student_type" id="regular" value="regular" checked required>
+                                    <label class="form-check-label" for="regular">
+                                        <i class="bi bi-person-check"></i> Regular Student
+                                        <br><small class="text-muted">You are enrolled in your designated section</small>
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input type="radio" class="form-check-input" name="student_type" id="irregular" value="irregular">
+                                    <label class="form-check-label" for="irregular">
+                                        <i class="bi bi-person-arms-up"></i> Irregular Student
+                                        <br><small class="text-muted">You have different class schedules or cross-enrolled</small>
+                                    </label>
+                                </div>
+                            </div>
+                            <div id="irregularNotice" class="alert alert-warning mt-2" style="display: none;">
+                                <i class="bi bi-info-circle-fill"></i>
+                                <strong>For Irregular Students:</strong> You will need to manually enter your Schedule ID when evaluating each class.
+                            </div>
+                        </div>
+                        
+                        <!-- Password -->
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Password *</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                                <input type="password" class="form-control" id="password" name="password" 
+                                       required minlength="8" maxlength="50"
+                                       placeholder="Create a strong password"
+                                       onkeyup="checkPasswordStrength()">
+                                <button class="btn btn-outline-secondary" type="button" id="togglePassword">
+                                    <i class="bi bi-eye" id="togglePasswordIcon"></i>
+                                </button>
+                            </div>
+                            
+                            <div class="password-strength mt-2">
+                                <div class="progress" style="height: 5px;">
+                                    <div id="passwordStrengthBar" class="progress-bar" role="progressbar" style="width: 0%;"></div>
+                                </div>
+                                <small id="passwordStrengthText" class="text-muted">Enter password</small>
+                            </div>
+                            
+                            <div class="password-requirements mt-2">
+                                <small class="text-muted">Password must contain:</small>
+                                <ul class="list-unstyled mt-1">
+                                    <li id="req-length" class="text-muted"><i class="bi bi-x-circle"></i> At least 8 characters</li>
+                                    <li id="req-uppercase" class="text-muted"><i class="bi bi-x-circle"></i> At least one uppercase letter</li>
+                                    <li id="req-lowercase" class="text-muted"><i class="bi bi-x-circle"></i> At least one lowercase letter</li>
+                                    <li id="req-number" class="text-muted"><i class="bi bi-x-circle"></i> At least one number</li>
+                                    <li id="req-special" class="text-muted"><i class="bi bi-x-circle"></i> At least one special character (!@#$%^&*)</li>
+                                </ul>
+                            </div>
+                            <div id="passwordFeedback" class="invalid-feedback"></div>
+                        </div>
+                        
+                        <!-- Confirm Password -->
+                        <div class="mb-3">
+                            <label for="confirm_password" class="form-label">Confirm Password *</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
+                                <input type="password" class="form-control" id="confirm_password" 
+                                       required placeholder="Confirm your password"
+                                       onkeyup="checkPasswordMatch()">
+                                <button class="btn btn-outline-secondary" type="button" id="toggleConfirmPassword">
+                                    <i class="bi bi-eye" id="toggleConfirmIcon"></i>
+                                </button>
+                            </div>
+                            <div id="passwordMatchFeedback" class="invalid-feedback"></div>
+                        </div>
+                        
+                        <hr class="my-4">
+                        
+                        <!-- Terms Checkbox -->
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="terms" required>
+                            <label class="form-check-label" for="terms">
+                                I agree to the <a href="#" data-bs-toggle="modal" data-bs-target="#termsModal">Terms and Conditions</a> *
+                            </label>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+                                <i class="bi bi-person-check"></i> Register
+                            </button>
+                            <a href="{{ url_for('login') }}" class="btn btn-outline-secondary">
+                                <i class="bi bi-box-arrow-in-right"></i> Back to Login
+                            </a>
+                        </div>
+                    </form>
+                </div>
+                <div class="card-footer bg-light text-center">
+                    <p class="mb-0">Already have an account? <a href="{{ url_for('login') }}">Login here</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Terms and Conditions Modal -->
+<div class="modal fade" id="termsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Terms and Conditions</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <h6>1. Account Registration</h6>
+                <p>You must provide accurate information. You are responsible for maintaining the confidentiality of your account.</p>
+                
+                <h6>2. Proper Use</h6>
+                <p>This system is for academic evaluation purposes only. Provide honest and constructive feedback.</p>
+                
+                <h6>3. Privacy</h6>
+                <p>Your evaluations are anonymous, but administrators can access your identity for audit purposes.</p>
+                
+                <h6>4. Prohibited Conduct</h6>
+                <p>No false, misleading, or inappropriate evaluations. Harassment or abusive language is prohibited.</p>
+                
+                <h6>5. Account Termination</h6>
+                <p>The administration may suspend accounts that violate these terms.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">I Understand</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Toggle password visibility
+document.getElementById('togglePassword').addEventListener('click', function() {
+    const password = document.getElementById('password');
+    const icon = document.getElementById('togglePasswordIcon');
+    if (password.type === 'password') {
+        password.type = 'text';
+        icon.classList.remove('bi-eye');
+        icon.classList.add('bi-eye-slash');
+    } else {
+        password.type = 'password';
+        icon.classList.remove('bi-eye-slash');
+        icon.classList.add('bi-eye');
+    }
+});
+
+document.getElementById('toggleConfirmPassword').addEventListener('click', function() {
+    const confirmPassword = document.getElementById('confirm_password');
+    const icon = document.getElementById('toggleConfirmIcon');
+    if (confirmPassword.type === 'password') {
+        confirmPassword.type = 'text';
+        icon.classList.remove('bi-eye');
+        icon.classList.add('bi-eye-slash');
+    } else {
+        confirmPassword.type = 'password';
+        icon.classList.remove('bi-eye-slash');
+        icon.classList.add('bi-eye');
+    }
+});
+
+// Update course info when section is selected
+function updateCourseInfo() {
+    const select = document.getElementById('section_id');
+    const selectedOption = select.options[select.selectedIndex];
+    const sectionInfo = document.getElementById('selectedSectionInfo');
+    const selectedSectionName = document.getElementById('selectedSectionName');
+    
+    if (select.value) {
+        const sectionName = selectedOption.text.split(' - ')[0];
+        selectedSectionName.textContent = sectionName;
+        sectionInfo.style.display = 'block';
+        
+        // Extract course code from program
+        const program = selectedOption.getAttribute('data-program');
+        if (program) {
+            const courseCode = program.split(' ')[0];
+            document.getElementById('course').value = courseCode;
+        }
+    } else {
+        sectionInfo.style.display = 'none';
+        document.getElementById('course').value = '';
+    }
+}
+
+// Regular/Irregular toggle
+const regularRadio = document.getElementById('regular');
+const irregularRadio = document.getElementById('irregular');
+const irregularNotice = document.getElementById('irregularNotice');
+
+if (regularRadio && irregularRadio && irregularNotice) {
+    regularRadio.addEventListener('change', function() {
+        if (this.checked) {
+            irregularNotice.style.display = 'none';
+        }
+    });
+    
+    irregularRadio.addEventListener('change', function() {
+        if (this.checked) {
+            irregularNotice.style.display = 'block';
+        }
+    });
+}
+
+// Check username availability
+function checkUsername(username) {
+    const input = document.getElementById('username');
+    const feedback = document.getElementById('usernameFeedback');
+    const usernamePattern = /^[a-zA-Z0-9_]+$/;
+    
+    if (!usernamePattern.test(username)) {
+        input.classList.remove('is-valid');
+        input.classList.add('is-invalid');
+        feedback.textContent = 'Username can only contain letters, numbers, and underscores';
+        return;
+    }
+    
+    if (username.length < 5) {
+        input.classList.remove('is-valid');
+        input.classList.add('is-invalid');
+        feedback.textContent = 'Username must be at least 5 characters';
+        return;
+    }
+    
+    if (username.length > 20) {
+        input.classList.remove('is-valid');
+        input.classList.add('is-invalid');
+        feedback.textContent = 'Username must be at most 20 characters';
+        return;
+    }
+    
+    fetch(`/check-username?username=${encodeURIComponent(username)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.available) {
+                input.classList.remove('is-invalid');
+                input.classList.add('is-valid');
+                feedback.classList.remove('invalid-feedback');
+                feedback.classList.add('valid-feedback');
+                feedback.textContent = 'Username available';
+            } else {
+                input.classList.remove('is-valid');
+                input.classList.add('is-invalid');
+                feedback.classList.remove('valid-feedback');
+                feedback.classList.add('invalid-feedback');
+                feedback.textContent = data.message;
+            }
+        });
+}
+
+// Check student ID availability
+function checkStudentId(studentId) {
+    const input = document.getElementById('student_id');
+    const feedback = document.getElementById('studentIdFeedback');
+    
+    if (studentId.length < 5) {
+        input.classList.remove('is-valid');
+        input.classList.add('is-invalid');
+        feedback.textContent = 'Student ID must be at least 5 characters';
+        return;
+    }
+    
+    if (studentId.length > 20) {
+        input.classList.remove('is-valid');
+        input.classList.add('is-invalid');
+        feedback.textContent = 'Student ID must be at most 20 characters';
+        return;
+    }
+    
+    fetch(`/check-student-id?student_id=${encodeURIComponent(studentId)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.available) {
+                input.classList.remove('is-invalid');
+                input.classList.add('is-valid');
+                feedback.classList.remove('invalid-feedback');
+                feedback.classList.add('valid-feedback');
+                feedback.textContent = 'Student ID available';
+            } else {
+                input.classList.remove('is-valid');
+                input.classList.add('is-invalid');
+                feedback.classList.remove('valid-feedback');
+                feedback.classList.add('invalid-feedback');
+                feedback.textContent = data.message;
+            }
+        });
+}
+
+// Check full name
+function checkFullName(fullName) {
+    const input = document.getElementById('full_name');
+    const feedback = document.getElementById('fullNameFeedback');
+    const namePattern = /^[a-zA-Z\s\-',.]+$/;
+    
+    if (!namePattern.test(fullName)) {
+        input.classList.remove('is-valid');
+        input.classList.add('is-invalid');
+        feedback.textContent = 'Name can only contain letters, spaces, hyphens, apostrophes, commas, and periods';
+        return;
+    }
+    
+    if (fullName.length < 2) {
+        input.classList.remove('is-valid');
+        input.classList.add('is-invalid');
+        feedback.textContent = 'Name must be at least 2 characters';
+        return;
+    }
+    
+    if (fullName.length > 100) {
+        input.classList.remove('is-valid');
+        input.classList.add('is-invalid');
+        feedback.textContent = 'Name must be at most 100 characters';
+        return;
+    }
+    
+    fetch(`/check-fullname?fullname=${encodeURIComponent(fullName)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.available) {
+                input.classList.remove('is-invalid');
+                input.classList.add('is-valid');
+                feedback.classList.remove('invalid-feedback');
+                feedback.classList.add('valid-feedback');
+                feedback.textContent = 'Name available';
+            } else {
+                input.classList.remove('is-valid');
+                input.classList.add('is-invalid');
+                feedback.classList.remove('valid-feedback');
+                feedback.classList.add('invalid-feedback');
+                feedback.textContent = data.message;
+            }
+        })
+        .catch(() => {
+            input.classList.remove('is-invalid');
+            input.classList.add('is-valid');
+            feedback.classList.remove('invalid-feedback');
+            feedback.classList.add('valid-feedback');
+            feedback.textContent = 'Name looks good';
+        });
+}
+
+// Password strength
+function checkPasswordStrength() {
+    const password = document.getElementById('password').value;
+    const strengthBar = document.getElementById('passwordStrengthBar');
+    const strengthText = document.getElementById('passwordStrengthText');
+    
+    const hasLength = password.length >= 8;
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+    
+    updateRequirement('req-length', hasLength);
+    updateRequirement('req-uppercase', hasUpperCase);
+    updateRequirement('req-lowercase', hasLowerCase);
+    updateRequirement('req-number', hasNumber);
+    updateRequirement('req-special', hasSpecial);
+    
+    const requirements = [hasLength, hasUpperCase, hasLowerCase, hasNumber, hasSpecial];
+    const metCount = requirements.filter(Boolean).length;
+    const strengthPercent = (metCount / 5) * 100;
+    
+    strengthBar.style.width = strengthPercent + '%';
+    
+    if (strengthPercent === 0) {
+        strengthBar.className = 'progress-bar bg-danger';
+        strengthText.textContent = 'Very weak';
+        strengthText.className = 'text-danger';
+    } else if (strengthPercent <= 40) {
+        strengthBar.className = 'progress-bar bg-danger';
+        strengthText.textContent = 'Weak';
+        strengthText.className = 'text-danger';
+    } else if (strengthPercent <= 60) {
+        strengthBar.className = 'progress-bar bg-warning';
+        strengthText.textContent = 'Fair';
+        strengthText.className = 'text-warning';
+    } else if (strengthPercent <= 80) {
+        strengthBar.className = 'progress-bar bg-info';
+        strengthText.textContent = 'Good';
+        strengthText.className = 'text-info';
+    } else {
+        strengthBar.className = 'progress-bar bg-success';
+        strengthText.textContent = 'Strong';
+        strengthText.className = 'text-success';
+    }
+    
+    validatePassword();
+}
+
+function updateRequirement(elementId, met) {
+    const element = document.getElementById(elementId);
+    const icon = element.querySelector('i');
+    
+    if (met) {
+        element.className = 'text-success';
+        icon.className = 'bi bi-check-circle';
+    } else {
+        element.className = 'text-muted';
+        icon.className = 'bi bi-x-circle';
+    }
+}
+
+function validatePassword() {
+    const password = document.getElementById('password').value;
+    const feedback = document.getElementById('passwordFeedback');
+    const input = document.getElementById('password');
+    
+    const hasLength = password.length >= 8;
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+    
+    const isValid = hasLength && hasUpperCase && hasLowerCase && hasNumber && hasSpecial;
+    
+    if (isValid) {
+        input.classList.remove('is-invalid');
+        input.classList.add('is-valid');
+        feedback.classList.remove('invalid-feedback');
+        feedback.classList.add('valid-feedback');
+        feedback.textContent = 'Password meets all requirements';
+    } else {
+        input.classList.remove('is-valid');
+        input.classList.add('is-invalid');
+        feedback.classList.remove('valid-feedback');
+        feedback.classList.add('invalid-feedback');
+        feedback.textContent = 'Password does not meet all requirements';
+    }
+    
+    checkPasswordMatch();
+}
+
+function checkPasswordMatch() {
+    const password = document.getElementById('password').value;
+    const confirm = document.getElementById('confirm_password').value;
+    const feedback = document.getElementById('passwordMatchFeedback');
+    const input = document.getElementById('confirm_password');
+    
+    if (password === confirm && password.length > 0) {
+        input.classList.remove('is-invalid');
+        input.classList.add('is-valid');
+        feedback.classList.remove('invalid-feedback');
+        feedback.classList.add('valid-feedback');
+        feedback.textContent = 'Passwords match';
+    } else {
+        input.classList.remove('is-valid');
+        if (confirm.length > 0) {
+            input.classList.add('is-invalid');
+            feedback.classList.remove('valid-feedback');
+            feedback.classList.add('invalid-feedback');
+            feedback.textContent = 'Passwords do not match';
+        }
+    }
+}
+
+function validateForm() {
+    const username = document.getElementById('username');
+    const studentId = document.getElementById('student_id');
+    const fullName = document.getElementById('full_name');
+    const sectionSelect = document.getElementById('section_id');
+    const password = document.getElementById('password');
+    const confirm = document.getElementById('confirm_password');
+    const terms = document.getElementById('terms');
+    
+    if (!username.value || username.classList.contains('is-invalid')) {
+        alert('Please enter a valid username');
+        username.focus();
+        return false;
+    }
+    
+    if (!studentId.value || studentId.classList.contains('is-invalid')) {
+        alert('Please enter a valid Student ID');
+        studentId.focus();
+        return false;
+    }
+    
+    if (!fullName.value || fullName.classList.contains('is-invalid')) {
+        alert('Please enter your full name');
+        fullName.focus();
+        return false;
+    }
+    
+    if (!sectionSelect.value) {
+        alert('Please select your section');
+        sectionSelect.focus();
+        return false;
+    }
+    
+    if (!password.value || password.classList.contains('is-invalid')) {
+        alert('Please enter a valid password that meets all requirements');
+        password.focus();
+        return false;
+    }
+    
+    if (!confirm.value || confirm.classList.contains('is-invalid')) {
+        alert('Passwords do not match');
+        confirm.focus();
+        return false;
+    }
+    
+    if (!terms.checked) {
+        alert('You must agree to the Terms and Conditions');
+        terms.focus();
+        return false;
+    }
+    
+    document.getElementById('submitBtn').innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Registering...';
+    document.getElementById('submitBtn').disabled = true;
+    
+    return true;
+}
+
+// Auto-generate username suggestion
+document.getElementById('student_id').addEventListener('blur', function() {
+    const usernameField = document.getElementById('username');
+    if (!usernameField.value && this.value) {
+        const suggested = this.value.replace(/[^a-zA-Z0-9_]/g, '_');
+        usernameField.value = suggested;
+        checkUsername(suggested);
+    }
+});
+</script>
+
+<style>
+.card { border: none; box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15); }
+.card-header { border-bottom: none; }
+.form-label { font-weight: 500; color: #495057; }
+.input-group-text { background-color: #f8f9fa; border-right: none; }
+.form-control:focus, .form-select:focus { border-color: #86b7fe; box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25); }
+.is-valid { border-color: #198754 !important; }
+.is-invalid { border-color: #dc3545 !important; }
+.valid-feedback, .invalid-feedback { font-size: 0.875rem; margin-top: 0.25rem; }
+.password-strength { margin-top: 0.5rem; }
+.password-strength .progress { border-radius: 3px; overflow: hidden; }
+.password-strength .progress-bar { transition: width 0.3s ease; }
+.password-requirements ul { padding-left: 0; }
+.password-requirements li { list-style: none; font-size: 0.85rem; margin-bottom: 0.25rem; }
+.password-requirements li i { margin-right: 0.5rem; font-size: 0.8rem; }
+.password-requirements li.text-success { color: #198754 !important; }
+.password-requirements li.text-muted { color: #6c757d !important; }
+hr { opacity: 0.2; }
+.spinner-border-sm { margin-right: 0.5rem; }
+.btn-outline-secondary { border-left: none; }
+.btn-outline-secondary:hover { background-color: transparent; color: #0d6efd; }
+@media (max-width: 768px) { .card-body { padding: 1.5rem !important; } .btn-lg { font-size: 1rem; } }
+.modal-body h6 { color: #0d6efd; margin-top: 1rem; margin-bottom: 0.5rem; }
+.modal-body h6:first-child { margin-top: 0; }
+.modal-body p { font-size: 0.9rem; color: #6c757d; margin-bottom: 0.5rem; }
+</style>
+{% endblock %}

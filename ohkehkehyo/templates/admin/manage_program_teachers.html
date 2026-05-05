@@ -1,0 +1,395 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Teachers - {{ program.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('admin_users') }}">User Management</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('admin_users') }}#programs">Programs</a></li>
+            <li class="breadcrumb-item active">Manage Teachers: {{ program.name }}</li>
+        </ol>
+    </nav>
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-person-badge"></i> Manage Teachers in {{ program.name }}</h2>
+        <div>
+            <a href="{{ url_for('program_dashboard', program_id=program.id) }}" class="btn btn-outline-info">
+                <i class="bi bi-speedometer2"></i> Program Dashboard
+            </a>
+            <a href="{{ url_for('admin_users') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Users
+            </a>
+        </div>
+    </div>
+    
+    <!-- Program Info Card -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <small class="text-muted">Program Name</small>
+                            <h5 class="mb-0">{{ program.name }}</h5>
+                        </div>
+                        <div class="col-md-3">
+                            <small class="text-muted">Department</small>
+                            <h5 class="mb-0">{{ program.department }}</h5>
+                        </div>
+                        <div class="col-md-3">
+                            <small class="text-muted">Program Coordinator</small>
+                            <h5 class="mb-0">
+                                {% if program.coordinator %}
+                                    {{ program.coordinator.full_name }}
+                                {% else %}
+                                    <span class="text-muted">Not assigned</span>
+                                {% endif %}
+                            </h5>
+                        </div>
+                        <div class="col-md-2">
+                            <small class="text-muted">Total Teachers</small>
+                            <h5 class="mb-0">{{ assigned_teachers|length }}</h5>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Assigned Teachers Column -->
+        <div class="col-md-7">
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-check-circle-fill"></i> Assigned Teachers ({{ assigned_teachers|length }})</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <input type="text" class="form-control" id="assignedSearch" 
+                               placeholder="Search assigned teachers...">
+                    </div>
+                    {% if assigned_teachers %}
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle" id="assignedTable">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Teacher Name</th>
+                                        <th>Department</th>
+                                        <th>Subjects</th>
+                                        <th>Evaluations</th>
+                                        <th>Avg Score</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for teacher_data in teacher_stats %}
+                                    <tr data-teacher-name="{{ teacher_data.teacher.name|lower }}">
+                                        <td>
+                                            <strong>{{ teacher_data.teacher.name }}</strong>
+                                            <br>
+                                            <small class="text-muted">{{ teacher_data.teacher.email }}</small>
+                                        </td>
+                                        <td>{{ teacher_data.teacher.department }}</td>
+                                        <td>{{ teacher_data.teacher.subjects|truncate(30) }}</td>
+                                        <td><span class="badge bg-info">{{ teacher_data.eval_count }}</span></td>
+                                        <td>
+                                            {% if teacher_data.eval_count > 0 %}
+                                                <span class="fw-bold text-success">{{ teacher_data.avg_score }}</span>
+                                                <small>/5</small>
+                                            {% else %}
+                                                <span class="text-muted">No evals</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <form method="POST" style="display: inline-block;" 
+                                                  onsubmit="return confirm('Remove {{ teacher_data.teacher.name }} from {{ program.name }}?')">
+                                                <input type="hidden" name="action" value="remove">
+                                                <input type="hidden" name="teacher_id" value="{{ teacher_data.teacher.id }}">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Remove from Program">
+                                                    <i class="bi bi-person-x"></i>
+                                                </button>
+                                            </form>
+                                            <a href="{{ url_for('teacher_dashboard', teacher_id=teacher_data.teacher.id) }}" 
+                                               class="btn btn-sm btn-outline-info" title="View Teacher Dashboard">
+                                                <i class="bi bi-graph-up"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-people fs-1 text-muted"></i>
+                            <p class="text-muted mt-2">No teachers assigned to this program yet.</p>
+                            <p class="text-muted small">Use the form on the right to add teachers.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Available Teachers Column -->
+        <div class="col-md-5">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-person-plus"></i> Available Teachers</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <input type="text" class="form-control" id="availableSearch" 
+                               placeholder="Search available teachers...">
+                    </div>
+                    
+                    {% if available_teachers %}
+                        <form method="POST" id="addTeacherForm">
+                            <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                                <table class="table table-sm table-hover" id="availableTable">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width: 40px;">
+                                                <input type="checkbox" id="selectAllCheckbox">
+                                            </th>
+                                            <th>Teacher Name</th>
+                                            <th>Department</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for teacher in available_teachers %}
+                                        <tr data-teacher-name="{{ teacher.name|lower }}">
+                                            <td>
+                                                <input type="checkbox" name="teacher_ids" value="{{ teacher.id }}" class="teacher-checkbox">
+                                            </td>
+                                            <td>
+                                                <strong>{{ teacher.name }}</strong>
+                                                <br>
+                                                <small class="text-muted">{{ teacher.email }}</small>
+                                            </td>
+                                            <td>{{ teacher.department }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            <div class="mt-3">
+                                <div class="d-flex gap-2">
+                                    <button type="submit" name="action" value="add" class="btn btn-primary flex-grow-1" 
+                                            onclick="return confirm('Add selected teachers to {{ program.name }}?')">
+                                        <i class="bi bi-person-plus"></i> Add Selected Teachers
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" id="bulkAddBtn" 
+                                            data-bs-toggle="modal" data-bs-target="#bulkAddModal">
+                                        <i class="bi bi-file-spreadsheet"></i> Bulk Add
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-check-circle fs-1 text-success"></i>
+                            <p class="text-muted mt-2">All teachers are already assigned to this program.</p>
+                            <a href="{{ url_for('admin_users') }}#teachers" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-person-plus"></i> Add New Teacher First
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quick Stats Card -->
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="bi bi-graph-up"></i> Program Summary</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-3">
+                            <div class="display-6 text-primary">{{ assigned_teachers|length }}</div>
+                            <small class="text-muted">Assigned Teachers</small>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="display-6 text-success">
+                                {% set total_evals = teacher_stats|sum(attribute='eval_count') %}
+                                {{ total_evals }}
+                            </div>
+                            <small class="text-muted">Total Evaluations</small>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="display-6 text-info">
+                                {% if teacher_stats|length > 0 %}
+                                    {{ "%.2f"|format(teacher_stats|sum(attribute='avg_score') / teacher_stats|length) }}
+                                {% else %}
+                                    0.00
+                                {% endif %}
+                            </div>
+                            <small class="text-muted">Department Average</small>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="display-6 text-warning">
+                                {% set evaluated = teacher_stats|selectattr('eval_count', '>', 0)|list|length %}
+                                {{ evaluated }}
+                            </div>
+                            <small class="text-muted">Teachers with Evaluations</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Add Modal -->
+<div class="modal fade" id="bulkAddModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="bi bi-file-spreadsheet"></i> Bulk Add Teachers</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('bulk_assign_teachers') }}" method="POST">
+                <div class="modal-body">
+                    <input type="hidden" name="program_id" value="{{ program.id }}">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle-fill"></i>
+                        Select multiple teachers to add to this program at once.
+                    </div>
+                    
+                    <div class="mb-3">
+                        <input type="text" class="form-control" id="bulkSearch" placeholder="Search teachers...">
+                    </div>
+                    
+                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                        <table class="table table-sm table-hover" id="bulkTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 40px;"><input type="checkbox" id="bulkSelectAll"></th>
+                                    <th>Teacher Name</th>
+                                    <th>Department</th>
+                                    <th>Subjects</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for teacher in available_teachers %}
+                                <tr data-teacher-name="{{ teacher.name|lower }}">
+                                    <td><input type="checkbox" name="teacher_ids" value="{{ teacher.id }}" class="bulk-checkbox"></td>
+                                    <td><strong>{{ teacher.name }}</strong><br><small>{{ teacher.email }}</small></td>
+                                    <td>{{ teacher.department }}</td>
+                                    <td>{{ teacher.subjects|truncate(40) }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-person-plus"></i> Add Selected Teachers
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Search functionality for assigned teachers
+    const assignedSearch = document.getElementById('assignedSearch');
+    if (assignedSearch) {
+        assignedSearch.addEventListener('keyup', function() {
+            const searchTerm = this.value.toLowerCase();
+            const rows = document.querySelectorAll('#assignedTable tbody tr');
+            rows.forEach(row => {
+                const text = row.getAttribute('data-teacher-name') || '';
+                if (text.includes(searchTerm)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        });
+    }
+    
+    // Search functionality for available teachers
+    const availableSearch = document.getElementById('availableSearch');
+    if (availableSearch) {
+        availableSearch.addEventListener('keyup', function() {
+            const searchTerm = this.value.toLowerCase();
+            const rows = document.querySelectorAll('#availableTable tbody tr');
+            rows.forEach(row => {
+                const text = row.getAttribute('data-teacher-name') || '';
+                if (text.includes(searchTerm)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        });
+    }
+    
+    // Select all checkbox functionality
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('.teacher-checkbox');
+            checkboxes.forEach(cb => cb.checked = this.checked);
+        });
+    }
+    
+    // Bulk modal select all
+    const bulkSelectAll = document.getElementById('bulkSelectAll');
+    if (bulkSelectAll) {
+        bulkSelectAll.addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('.bulk-checkbox');
+            checkboxes.forEach(cb => cb.checked = this.checked);
+        });
+    }
+    
+    // Bulk modal search
+    const bulkSearch = document.getElementById('bulkSearch');
+    if (bulkSearch) {
+        bulkSearch.addEventListener('keyup', function() {
+            const searchTerm = this.value.toLowerCase();
+            const rows = document.querySelectorAll('#bulkTable tbody tr');
+            rows.forEach(row => {
+                const text = row.getAttribute('data-teacher-name') || '';
+                if (text.includes(searchTerm)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        });
+    }
+});
+</script>
+
+<style>
+.table td {
+    vertical-align: middle;
+}
+.badge {
+    font-size: 0.85rem;
+    padding: 0.5em 0.75em;
+}
+.btn-group .btn {
+    margin-right: 3px;
+}
+#availableTable tbody tr:hover {
+    background-color: rgba(13, 110, 253, 0.05);
+    cursor: pointer;
+}
+#assignedTable tbody tr:hover {
+    background-color: rgba(25, 135, 84, 0.05);
+}
+</style>
+{% endblock %}

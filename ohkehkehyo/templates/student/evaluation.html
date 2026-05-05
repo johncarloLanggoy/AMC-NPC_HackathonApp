@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+
+{% block title %}Evaluate Class - {{ class_assignment.subject_name }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('student_dashboard') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item active">Evaluate Class</li>
+                </ol>
+            </nav>
+            
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Evaluate: {{ class_assignment.subject_name }}</h4>
+                    <small>
+                        {{ class_assignment.teacher.name }} | 
+                        {{ class_assignment.section.name }} | 
+                        {{ class_assignment.subject_type }} | 
+                        Schedule ID: {{ class_assignment.schedule_id }}
+                    </small>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle-fill"></i> 
+                        <strong>Anonymous Evaluation:</strong> Your evaluation will be kept anonymous. 
+                        The teacher will not know who submitted this feedback.
+                    </div>
+                    
+                    <form method="POST" id="evaluationForm" onsubmit="return validateForm()">
+                        <h5 class="mb-3">Rate the following aspects (1-5):</h5>
+                        <p class="text-muted small mb-4">1 = Poor, 2 = Fair, 3 = Good, 4 = Very Good, 5 = Excellent</p>
+                        
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Teaching Clarity</label>
+                            <div class="rating-stars mb-2">
+                                {% for i in range(1, 6) %}
+                                <input type="radio" name="teaching_clarity" value="{{ i }}" id="tc{{ i }}" required>
+                                <label for="tc{{ i }}"><i class="bi bi-star-fill"></i></label>
+                                {% endfor %}
+                            </div>
+                            <small class="text-muted">How clear and understandable were the lectures/discussions?</small>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Student Engagement</label>
+                            <div class="rating-stars mb-2">
+                                {% for i in range(1, 6) %}
+                                <input type="radio" name="engagement" value="{{ i }}" id="eng{{ i }}" required>
+                                <label for="eng{{ i }}"><i class="bi bi-star-fill"></i></label>
+                                {% endfor %}
+                            </div>
+                            <small class="text-muted">How well did the teacher engage students in learning?</small>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Fairness in Assessment</label>
+                            <div class="rating-stars mb-2">
+                                {% for i in range(1, 6) %}
+                                <input type="radio" name="fairness" value="{{ i }}" id="fair{{ i }}" required>
+                                <label for="fair{{ i }}"><i class="bi bi-star-fill"></i></label>
+                                {% endfor %}
+                            </div>
+                            <small class="text-muted">Were assessments, quizzes, and exams fair?</small>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Subject Matter Mastery</label>
+                            <div class="rating-stars mb-2">
+                                {% for i in range(1, 6) %}
+                                <input type="radio" name="subject_mastery" value="{{ i }}" id="sm{{ i }}" required>
+                                <label for="sm{{ i }}"><i class="bi bi-star-fill"></i></label>
+                                {% endfor %}
+                            </div>
+                            <small class="text-muted">How well does the teacher know and explain the subject?</small>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Punctuality & Attendance</label>
+                            <div class="rating-stars mb-2">
+                                {% for i in range(1, 6) %}
+                                <input type="radio" name="punctuality" value="{{ i }}" id="punct{{ i }}" required>
+                                <label for="punct{{ i }}"><i class="bi bi-star-fill"></i></label>
+                                {% endfor %}
+                            </div>
+                            <small class="text-muted">Does the teacher start/end class on time?</small>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="comments" class="form-label fw-bold">Additional Comments (Optional)</label>
+                            <textarea class="form-control" id="comments" name="comments" rows="4" 
+                                      placeholder="Share your thoughts about this class, the teacher's teaching style, strengths, areas for improvement..."></textarea>
+                        </div>
+                        
+                        <div class="mb-4 form-check">
+                            <input type="checkbox" class="form-check-input" name="anonymous" id="anonymous" checked>
+                            <label class="form-check-label" for="anonymous">
+                                <i class="bi bi-incognito"></i> Submit anonymously (recommended)
+                            </label>
+                        </div>
+                        
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary flex-grow-1">
+                                <i class="bi bi-check-circle"></i> Submit Evaluation
+                            </button>
+                            <a href="{{ url_for('student_dashboard') }}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-circle"></i> Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.rating-stars {
+    display: flex;
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+    gap: 0.25rem;
+}
+
+.rating-stars input {
+    display: none;
+}
+
+.rating-stars label {
+    font-size: 2rem;
+    color: #ddd;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.rating-stars label:hover,
+.rating-stars label:hover ~ label,
+.rating-stars input:checked ~ label {
+    color: #ffc107;
+    transform: scale(1.1);
+}
+
+.rating-stars label i {
+    font-size: 2rem;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+    .rating-stars label {
+        font-size: 1.5rem;
+    }
+    
+    .card-header h4 {
+        font-size: 1.2rem;
+    }
+    
+    .card-header small {
+        font-size: 0.8rem;
+    }
+}
+</style>
+
+<script>
+function validateForm() {
+    const ratings = ['teaching_clarity', 'engagement', 'fairness', 'subject_mastery', 'punctuality'];
+    let allSelected = true;
+    
+    for (let rating of ratings) {
+        const selected = document.querySelector(`input[name="${rating}"]:checked`);
+        if (!selected) {
+            allSelected = false;
+            break;
+        }
+    }
+    
+    if (!allSelected) {
+        alert('Please rate all categories before submitting.');
+        return false;
+    }
+    
+    if (!confirm('Are you sure you want to submit this evaluation?')) {
+        return false;
+    }
+    
+    // Show loading state
+    const submitBtn = document.querySelector('button[type="submit"]');
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Submitting...';
+    submitBtn.disabled = true;
+    
+    return true;
+}
+
+// Add animation to stars on hover
+document.querySelectorAll('.rating-stars label').forEach(label => {
+    label.addEventListener('mouseenter', function() {
+        this.style.transform = 'scale(1.2)';
+    });
+    
+    label.addEventListener('mouseleave', function() {
+        this.style.transform = 'scale(1)';
+    });
+});
+
+// Prevent double submission
+document.getElementById('evaluationForm').addEventListener('submit', function() {
+    const submitBtn = this.querySelector('button[type="submit"]');
+    if (submitBtn.disabled) {
+        return false;
+    }
+});
+</script>
+{% endblock %}

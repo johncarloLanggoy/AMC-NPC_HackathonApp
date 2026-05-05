@@ -1,0 +1,351 @@
+{% extends "base.html" %}
+
+{% block title %}Email Reminders{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <h2 class="mb-4"><i class="bi bi-envelope"></i> Email Reminders</h2>
+    
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Schedule New Reminder</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" id="reminderForm">
+                        <div class="mb-3">
+                            <label class="form-label">Recipient Role</label>
+                            <select class="form-select" name="role" required>
+                                <option value="">Select role...</option>
+                                <option value="student">Students</option>
+                                <option value="program_head">Program Heads</option>
+                                <option value="dean">Deans</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Evaluation Deadline</label>
+                            <input type="date" class="form-control" name="deadline" required 
+                                   min="{{ now.strftime('%Y-%m-%d') }}">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Additional Message (Optional)</label>
+                            <textarea class="form-control" name="custom_message" rows="3" 
+                                      placeholder="Enter any additional instructions or message..."></textarea>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-send"></i> Schedule Reminders
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Scheduled Reminders</h5>
+                    <div>
+                        <select class="form-select form-select-sm d-inline-block w-auto me-2" id="statusFilter" onchange="filterReminders()">
+                            <option value="all">All Status</option>
+                            <option value="pending">Pending</option>
+                            <option value="sent">Sent</option>
+                            <option value="cancelled">Cancelled</option>
+                            <option value="failed">Failed</option>
+                        </select>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="location.reload()">
+                            <i class="bi bi-arrow-clockwise"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle" id="remindersTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Recipient Role</th>
+                                    <th>Recipient Email</th>
+                                    <th>Scheduled For</th>
+                                    <th>Status</th>
+                                    <th>Sent At</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for reminder in reminders %}
+                                <tr data-status="{{ reminder.status }}">
+                                    <td>
+                                        <span class="badge bg-{{ 'info' if reminder.recipient_role == 'student' 
+                                                              else 'success' if reminder.recipient_role == 'program_head'
+                                                              else 'warning' }}">
+                                            {{ reminder.recipient_role|replace('_', ' ')|title }}
+                                        </span>
+                                    </td>
+                                    <td>{{ reminder.recipient_email }}</td>
+                                    <td>{{ reminder.scheduled_for.strftime('%Y-%m-%d %H:%M') }}</td>
+                                    <td>
+                                        {% if reminder.status == 'sent' %}
+                                            <span class="badge bg-success">Sent</span>
+                                        {% elif reminder.status == 'pending' %}
+                                            <span class="badge bg-warning">Pending</span>
+                                        {% elif reminder.status == 'cancelled' %}
+                                            <span class="badge bg-secondary">Cancelled</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">Failed</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if reminder.sent_at %}
+                                            {{ reminder.sent_at.strftime('%Y-%m-%d %H:%M') }}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if reminder.status == 'pending' %}
+                                            <button class="btn btn-sm btn-outline-danger cancel-btn" 
+                                                    data-reminder-id="{{ reminder.id }}">
+                                                <i class="bi bi-x-circle"></i> Cancel
+                                            </button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    {% if not reminders %}
+                    <div class="text-center py-4">
+                        <i class="bi bi-inbox fs-1 text-muted"></i>
+                        <p class="text-muted mt-2">No reminders scheduled</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Set minimum date for deadline input
+    const deadlineInput = document.querySelector('input[name="deadline"]');
+    if (deadlineInput) {
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        deadlineInput.min = `${yyyy}-${mm}-${dd}`;
+    }
+    
+    // Add click handlers to all cancel buttons
+    document.querySelectorAll('.cancel-btn').forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            const reminderId = this.dataset.reminderId;
+            cancelReminder(reminderId, this);
+        });
+    });
+    
+    // Form validation
+    const reminderForm = document.getElementById('reminderForm');
+    if (reminderForm) {
+        reminderForm.addEventListener('submit', function(e) {
+            const role = this.querySelector('select[name="role"]').value;
+            const deadline = this.querySelector('input[name="deadline"]').value;
+            
+            if (!role || !deadline) {
+                e.preventDefault();
+                showNotification('Please fill in all required fields', 'warning');
+            }
+        });
+    }
+});
+
+// Function to cancel a reminder
+function cancelReminder(reminderId, button) {
+    if (!confirm('Are you sure you want to cancel this reminder?')) {
+        return;
+    }
+    
+    // Show loading state
+    const originalText = button.innerHTML;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Canceling...';
+    button.disabled = true;
+    
+    fetch(`/api/cancel-reminder/${reminderId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            showNotification('Reminder cancelled successfully!', 'success');
+            // Update the row
+            const row = button.closest('tr');
+            if (row) {
+                // Update status cell
+                const statusCell = row.querySelector('td:nth-child(4)');
+                if (statusCell) {
+                    statusCell.innerHTML = '<span class="badge bg-secondary">Cancelled</span>';
+                }
+                // Update row status attribute
+                row.dataset.status = 'cancelled';
+                // Remove the button
+                button.closest('td').innerHTML = '<span class="text-muted">Cancelled</span>';
+            }
+        } else {
+            throw new Error(data.error || 'Failed to cancel reminder');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        // Restore button
+        button.innerHTML = originalText;
+        button.disabled = false;
+        showNotification('Failed to cancel reminder: ' + error.message, 'danger');
+    });
+}
+
+// Function to show notifications
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3`;
+    notification.style.zIndex = '9999';
+    notification.style.minWidth = '300px';
+    notification.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.remove();
+    }, 5000);
+}
+
+// Function to filter reminders by status
+function filterReminders() {
+    const filter = document.getElementById('statusFilter').value;
+    const rows = document.querySelectorAll('#remindersTable tbody tr');
+    
+    rows.forEach(row => {
+        if (filter === 'all' || row.dataset.status === filter) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+
+// Function to format date
+function formatDate(date) {
+    const d = new Date(date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day} ${hours}:${minutes}`;
+}
+
+// Function to reschedule a reminder (for future implementation)
+function rescheduleReminder(reminderId) {
+    const newDate = prompt('Enter new date (YYYY-MM-DD):');
+    if (newDate) {
+        fetch(`/api/reschedule-reminder/${reminderId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ new_date: newDate })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification('Reminder rescheduled successfully!', 'success');
+                location.reload();
+            } else {
+                showNotification('Failed to reschedule reminder', 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('Error rescheduling reminder', 'danger');
+        });
+    }
+}
+</script>
+
+<style>
+.position-fixed {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    min-width: 300px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+.badge {
+    font-size: 0.85rem;
+    padding: 0.5em 0.75em;
+}
+
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+/* Animation for status changes */
+@keyframes highlight {
+    0% { background-color: #fff3cd; }
+    100% { background-color: transparent; }
+}
+
+.status-changed {
+    animation: highlight 2s ease-out;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .position-fixed {
+        left: 20px;
+        right: 20px;
+        min-width: auto;
+    }
+    
+    .table td, .table th {
+        font-size: 0.85rem;
+    }
+    
+    #statusFilter {
+        width: 100% !important;
+        margin-bottom: 10px;
+    }
+}
+
+/* Loading spinner */
+.spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+    border-width: 0.15em;
+}
+</style>
+{% endblock %}

@@ -1,0 +1,1125 @@
+{% extends "base.html" %}
+
+{% block title %}User Management{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <h2 class="mb-4"><i class="bi bi-people"></i> User & Teacher Management</h2>
+    
+    <ul class="nav nav-tabs mb-4" id="myTab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="users-tab" data-bs-toggle="tab" data-bs-target="#users" 
+                    type="button" role="tab">Users</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="teachers-tab" data-bs-toggle="tab" data-bs-target="#teachers" 
+                    type="button" role="tab">Teachers</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="programs-tab" data-bs-toggle="tab" data-bs-target="#programs" 
+                    type="button" role="tab">Programs</button>
+        </li>
+    </ul>
+    
+    <div class="tab-content">
+        <!-- Users Tab -->
+        <div class="tab-pane fade show active" id="users" role="tabpanel">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">System Users</h5>
+                    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addUserModal">
+                        <i class="bi bi-person-plus"></i> Add User
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3" id="userSearchContainer" style="display: none;">
+                        <input type="text" class="form-control" id="userSearch" 
+                               placeholder="Search users by name, email, or role...">
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle" id="usersTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Username</th>
+                                    <th>Full Name</th>
+                                    <th>Email</th>
+                                    <th>Role</th>
+                                    <th>Department</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersTableBody">
+                                {% for user in users %}
+                                <tr id="user-{{ user.id }}" data-user-id="{{ user.id }}" data-user-role="{{ user.role }}">
+                                    <td><code>{{ user.username }}</code></td>
+                                    <td>{{ user.full_name }}</td>
+                                    <td>{{ user.email }}</td>
+                                    <td>
+                                        <span class="badge bg-{{ 'primary' if user.role == 'admin' 
+                                                              else 'info' if user.role == 'student'
+                                                              else 'success' if user.role == 'program_head'
+                                                              else 'warning' }}">
+                                            {{ user.role|replace('_', ' ')|title }}
+                                        </span>
+                                    </td>
+                                    <td>{{ user.department or '-' }}</td>
+                                    <td>
+                                        <span class="badge status-badge {{ 'bg-success' if user.is_active else 'bg-secondary' }}">
+                                            {{ 'Active' if user.is_active else 'Inactive' }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary edit-user-btn" 
+                                                data-user-id="{{ user.id }}"
+                                                data-bs-toggle="tooltip" 
+                                                title="Edit User">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-{{ 'danger' if user.is_active else 'success' }} toggle-user-btn" 
+                                                data-user-id="{{ user.id }}"
+                                                data-user-status="{{ 'active' if user.is_active else 'inactive' }}"
+                                                data-bs-toggle="tooltip" 
+                                                title="{{ 'Deactivate' if user.is_active else 'Activate' }} User">
+                                            <i class="bi bi-{{ 'toggle-off' if user.is_active else 'toggle-on' }}"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% if not users %}
+                    <div class="text-center py-4">
+                        <i class="bi bi-people fs-1 text-muted"></i>
+                        <p class="text-muted mt-2">No users found</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Teachers Tab -->
+        <div class="tab-pane fade" id="teachers" role="tabpanel">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Teachers</h5>
+                    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addTeacherModal">
+                        <i class="bi bi-person-plus"></i> Add Teacher
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3" id="teacherSearchContainer" style="display: none;">
+                        <input type="text" class="form-control" id="teacherSearch" 
+                               placeholder="Search teachers by name, department, or subjects...">
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle" id="teachersTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Department</th>
+                                    <th>Subjects</th>
+                                    <th>Join Date</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="teachersTableBody">
+                                {% for teacher in teachers %}
+                                <tr id="teacher-{{ teacher.id }}" data-teacher-id="{{ teacher.id }}">
+                                    <td><strong>{{ teacher.name }}</strong></td>
+                                    <td>{{ teacher.email }}</td>
+                                    <td>{{ teacher.department }}</td>
+                                    <td>{{ teacher.subjects }}</td>
+                                    <td>{{ teacher.joining_date.strftime('%Y-%m-%d') }}</td>
+                                    <td>
+                                        <span class="badge teacher-status-badge {{ 'bg-success' if teacher.is_active else 'bg-secondary' }}">
+                                            {{ 'Active' if teacher.is_active else 'Inactive' }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('teacher_dashboard', teacher_id=teacher.id) }}" 
+                                           class="btn btn-sm btn-outline-info"
+                                           data-bs-toggle="tooltip" 
+                                           title="View Dashboard">
+                                            <i class="bi bi-graph-up"></i>
+                                        </a>
+                                        <button class="btn btn-sm btn-outline-primary edit-teacher-btn" 
+                                                data-teacher-id="{{ teacher.id }}"
+                                                data-bs-toggle="tooltip" 
+                                                title="Edit Teacher">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-{{ 'danger' if teacher.is_active else 'success' }} toggle-teacher-btn" 
+                                                data-teacher-id="{{ teacher.id }}"
+                                                data-teacher-status="{{ 'active' if teacher.is_active else 'inactive' }}"
+                                                data-bs-toggle="tooltip" 
+                                                title="{{ 'Deactivate' if teacher.is_active else 'Activate' }} Teacher">
+                                            <i class="bi bi-{{ 'toggle-off' if teacher.is_active else 'toggle-on' }}"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-secondary assign-to-program-btn" 
+                                                data-teacher-id="{{ teacher.id }}"
+                                                data-teacher-name="{{ teacher.name }}"
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#assignTeacherProgramModal"
+                                                title="Assign to Program">
+                                            <i class="bi bi-journal-bookmark-fill"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% if not teachers %}
+                    <div class="text-center py-4">
+                        <i class="bi bi-person-video3 fs-1 text-muted"></i>
+                        <p class="text-muted mt-2">No teachers found</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Programs Tab -->
+        <div class="tab-pane fade" id="programs" role="tabpanel">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Programs</h5>
+                    <div>
+                        <button class="btn btn-success btn-sm me-2" data-bs-toggle="modal" data-bs-target="#bulkAssignProgramModal">
+                            <i class="bi bi-files"></i> Bulk Assign
+                        </button>
+                        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addProgramModal">
+                            <i class="bi bi-plus-circle"></i> Add Program
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3" id="programSearchContainer" style="display: none;">
+                        <input type="text" class="form-control" id="programSearch" 
+                               placeholder="Search programs by name or department...">
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle" id="programsTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Program Name</th>
+                                    <th>Department</th>
+                                    <th>Coordinator</th>
+                                    <th>Teachers</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="programsTableBody">
+                                {% for program in programs %}
+                                <tr data-program-id="{{ program.id }}" data-program-name="{{ program.name|lower }}">
+                                    <td><strong>{{ program.name }}</strong></td>
+                                    <td>{{ program.department }}</td>
+                                    <td>
+                                        {% if program.coordinator %}
+                                            {{ program.coordinator.full_name }}
+                                        {% else %}
+                                            <span class="text-muted">Not assigned</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info teacher-count">{{ program.teachers|length }}</span>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+                                            <a href="{{ url_for('program_dashboard', program_id=program.id) }}" 
+                                               class="btn btn-sm btn-outline-info" title="View Dashboard">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                            <a href="{{ url_for('manage_program_teachers', program_id=program.id) }}" 
+                                               class="btn btn-sm btn-outline-primary" title="Manage Teachers">
+                                                <i class="bi bi-person-plus"></i> Teachers
+                                            </a>
+                                            <button class="btn btn-sm btn-outline-secondary assign-program-head-btn"
+                                                    data-program-id="{{ program.id }}"
+                                                    data-program-name="{{ program.name }}"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#assignProgramHeadModal"
+                                                    title="Assign Program Head">
+                                                <i class="bi bi-person-badge"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% if not programs %}
+                    <div class="text-center py-4">
+                        <i class="bi bi-book fs-1 text-muted"></i>
+                        <p class="text-muted mt-2">No programs found</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add User Modal -->
+<div class="modal fade" id="addUserModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New User</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('add_user') }}" method="POST" id="addUserForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Username</label>
+                        <input type="text" class="form-control" name="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Full Name</label>
+                        <input type="text" class="form-control" name="full_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" name="email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Password</label>
+                        <input type="password" class="form-control" name="password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Role</label>
+                        <select class="form-select" name="role" id="userRoleSelect" required>
+                            <option value="">Select Role</option>
+                            <option value="student">Student</option>
+                            <option value="program_head">Program Head</option>
+                            <option value="dean">Dean</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Department</label>
+                        <input type="text" class="form-control" name="department">
+                    </div>
+                    <div id="studentFields" style="display:none;">
+                        <div class="mb-3">
+                            <label class="form-label">Roll Number</label>
+                            <input type="text" class="form-control" name="roll_number">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Program</label>
+                            <input type="text" class="form-control" name="program">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Semester</label>
+                            <input type="number" class="form-control" name="semester" min="1" max="8">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add User</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit User Modal -->
+<div class="modal fade" id="editUserModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit User</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editUserForm" method="POST" action="{{ url_for('edit_user') }}">
+                <div class="modal-body">
+                    <input type="hidden" name="user_id" id="editUserId">
+                    <div class="mb-3">
+                        <label class="form-label">Username</label>
+                        <input type="text" class="form-control" name="username" id="editUsername" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Full Name</label>
+                        <input type="text" class="form-control" name="full_name" id="editFullName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" name="email" id="editEmail" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">New Password (leave blank to keep current)</label>
+                        <input type="password" class="form-control" name="password" id="editPassword">
+                        <small class="text-muted">Minimum 6 characters</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Role</label>
+                        <select class="form-select" name="role" id="editRole" required>
+                            <option value="student">Student</option>
+                            <option value="program_head">Program Head</option>
+                            <option value="dean">Dean</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Department</label>
+                        <input type="text" class="form-control" name="department" id="editDepartment">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Teacher Modal -->
+<div class="modal fade" id="editTeacherModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Teacher</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editTeacherForm" method="POST" action="{{ url_for('edit_teacher') }}">
+                <div class="modal-body">
+                    <input type="hidden" name="teacher_id" id="editTeacherId">
+                    <div class="mb-3">
+                        <label class="form-label">Full Name</label>
+                        <input type="text" class="form-control" name="name" id="editTeacherName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" name="email" id="editTeacherEmail" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Department</label>
+                        <input type="text" class="form-control" name="department" id="editTeacherDepartment" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Subjects (comma separated)</label>
+                        <input type="text" class="form-control" name="subjects" id="editTeacherSubjects" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Program Modal -->
+<div class="modal fade" id="addProgramModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Program</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('add_program') }}" method="POST" id="addProgramForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Program Name</label>
+                        <input type="text" class="form-control" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Department</label>
+                        <input type="text" class="form-control" name="department" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Program Coordinator</label>
+                        <select class="form-select" name="coordinator_id">
+                            <option value="">Select Coordinator</option>
+                            {% for user in users if user.role == 'program_head' %}
+                            <option value="{{ user.id }}">{{ user.full_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Program</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Assign Teacher to Program Modal -->
+<div class="modal fade" id="assignTeacherProgramModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="bi bi-journal-bookmark-fill"></i> Assign Teacher to Program</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="assignTeacherForm" method="POST" action="{{ url_for('assign_teacher_to_program') }}">
+                <div class="modal-body">
+                    <input type="hidden" name="teacher_id" id="assignTeacherId">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle-fill"></i>
+                        Assigning a teacher to a program will add them to that program's dashboard.
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Teacher</label>
+                        <input type="text" class="form-control" id="assignTeacherName" readonly disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Select Program</label>
+                        <select class="form-select" name="program_id" required>
+                            <option value="">Choose a program...</option>
+                            {% for program in programs %}
+                            <option value="{{ program.id }}">{{ program.name }} ({{ program.department }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Assign Teacher</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Assign Program Head Modal -->
+<div class="modal fade" id="assignProgramHeadModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title"><i class="bi bi-person-badge"></i> Assign Program Head</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="assignProgramHeadForm" method="POST" action="{{ url_for('assign_program_head') }}">
+                <div class="modal-body">
+                    <input type="hidden" name="program_id" id="assignProgramHeadId">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle-fill"></i>
+                        The program head will have access to manage teachers and view evaluations for this program.
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Program</label>
+                        <input type="text" class="form-control" id="assignProgramHeadName" readonly disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Select Program Head</label>
+                        <select class="form-select" name="user_id" required>
+                            <option value="">Choose a program head...</option>
+                            {% for user in users if user.role == 'program_head' %}
+                            <option value="{{ user.id }}">{{ user.full_name }} ({{ user.department or 'No department' }})</option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted">Only users with 'program_head' role are shown here.</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">Assign Program Head</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Assign Program Modal -->
+<div class="modal fade" id="bulkAssignProgramModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title"><i class="bi bi-files"></i> Bulk Assign Teachers to Program</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('bulk_assign_teachers') }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Select Program</label>
+                        <select class="form-select" name="program_id" required>
+                            <option value="">Choose a program...</option>
+                            {% for program in programs %}
+                            <option value="{{ program.id }}">{{ program.name }} ({{ program.department }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Select Teachers to Assign</label>
+                        <div class="mb-2">
+                            <input type="text" class="form-control" id="bulkTeacherSearch" placeholder="Search teachers...">
+                        </div>
+                        <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                            <table class="table table-sm table-hover" id="bulkTeacherTable">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 40px;"><input type="checkbox" id="bulkSelectAllTeachers"></th>
+                                        <th>Teacher Name</th>
+                                        <th>Department</th>
+                                        <th>Subjects</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for teacher in teachers %}
+                                    <tr data-teacher-name="{{ teacher.name|lower }}">
+                                        <td><input type="checkbox" name="teacher_ids" value="{{ teacher.id }}" class="bulk-teacher-checkbox"></td>
+                                        <td><strong>{{ teacher.name }}</strong><br><small>{{ teacher.email }}</small></td>
+                                        <td>{{ teacher.department }}</td>
+                                        <td>{{ teacher.subjects|truncate(40) }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-info text-white">Assign Selected Teachers</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize tooltips
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function(tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+    
+    // Check if users table has data and show search if needed
+    const usersTableBody = document.getElementById('usersTableBody');
+    if (usersTableBody && usersTableBody.children.length > 0) {
+        const searchContainer = document.getElementById('userSearchContainer');
+        if (searchContainer) searchContainer.style.display = 'block';
+    }
+    
+    // Check if teachers table has data and show search if needed
+    const teachersTableBody = document.getElementById('teachersTableBody');
+    if (teachersTableBody && teachersTableBody.children.length > 0) {
+        const searchContainer = document.getElementById('teacherSearchContainer');
+        if (searchContainer) searchContainer.style.display = 'block';
+    }
+    
+    // Check if programs table has data and show search if needed
+    const programsTableBody = document.getElementById('programsTableBody');
+    if (programsTableBody && programsTableBody.children.length > 0) {
+        const searchContainer = document.getElementById('programSearchContainer');
+        if (searchContainer) searchContainer.style.display = 'block';
+        
+        // Program search functionality
+        const programSearch = document.getElementById('programSearch');
+        if (programSearch) {
+            programSearch.addEventListener('keyup', function() {
+                const searchTerm = this.value.toLowerCase();
+                const rows = document.querySelectorAll('#programsTable tbody tr');
+                rows.forEach(row => {
+                    const text = row.getAttribute('data-program-name') || '';
+                    if (text.includes(searchTerm)) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+            });
+        }
+    }
+    
+    // Show/hide student fields based on role selection in add modal
+    const roleSelect = document.getElementById('userRoleSelect');
+    if (roleSelect) {
+        roleSelect.addEventListener('change', function() {
+            const studentFields = document.getElementById('studentFields');
+            if (this.value === 'student') {
+                studentFields.style.display = 'block';
+                document.querySelectorAll('#studentFields input').forEach(input => {
+                    input.required = true;
+                });
+            } else {
+                studentFields.style.display = 'none';
+                document.querySelectorAll('#studentFields input').forEach(input => {
+                    input.required = false;
+                });
+            }
+        });
+    }
+    
+    // Edit User buttons
+    document.querySelectorAll('.edit-user-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const userId = this.dataset.userId;
+            editUser(userId);
+        });
+    });
+    
+    // Toggle User buttons
+    document.querySelectorAll('.toggle-user-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const userId = this.dataset.userId;
+            const currentStatus = this.dataset.userStatus;
+            toggleUser(userId, currentStatus, this);
+        });
+    });
+    
+    // Edit Teacher buttons
+    document.querySelectorAll('.edit-teacher-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const teacherId = this.dataset.teacherId;
+            editTeacher(teacherId);
+        });
+    });
+    
+    // Toggle Teacher buttons
+    document.querySelectorAll('.toggle-teacher-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const teacherId = this.dataset.teacherId;
+            const currentStatus = this.dataset.teacherStatus;
+            toggleTeacher(teacherId, currentStatus, this);
+        });
+    });
+    
+    // Assign Teacher to Program buttons
+    document.querySelectorAll('.assign-to-program-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const teacherId = this.dataset.teacherId;
+            const teacherName = this.dataset.teacherName;
+            document.getElementById('assignTeacherId').value = teacherId;
+            document.getElementById('assignTeacherName').value = teacherName;
+        });
+    });
+    
+    // Assign Program Head buttons
+    document.querySelectorAll('.assign-program-head-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const programId = this.dataset.programId;
+            const programName = this.dataset.programName;
+            document.getElementById('assignProgramHeadId').value = programId;
+            document.getElementById('assignProgramHeadName').value = programName;
+        });
+    });
+    
+    // Search functionality for users
+    const userSearch = document.getElementById('userSearch');
+    if (userSearch) {
+        userSearch.addEventListener('keyup', filterUsers);
+    }
+    
+    // Search functionality for teachers
+    const teacherSearch = document.getElementById('teacherSearch');
+    if (teacherSearch) {
+        teacherSearch.addEventListener('keyup', filterTeachers);
+    }
+    
+    // Bulk teacher search
+    const bulkTeacherSearch = document.getElementById('bulkTeacherSearch');
+    if (bulkTeacherSearch) {
+        bulkTeacherSearch.addEventListener('keyup', function() {
+            const searchTerm = this.value.toLowerCase();
+            const rows = document.querySelectorAll('#bulkTeacherTable tbody tr');
+            rows.forEach(row => {
+                const text = row.getAttribute('data-teacher-name') || '';
+                if (text.includes(searchTerm)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        });
+    }
+    
+    // Bulk select all teachers
+    const bulkSelectAll = document.getElementById('bulkSelectAllTeachers');
+    if (bulkSelectAll) {
+        bulkSelectAll.addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('.bulk-teacher-checkbox');
+            checkboxes.forEach(cb => cb.checked = this.checked);
+        });
+    }
+    
+    // Form validation
+    const addUserForm = document.getElementById('addUserForm');
+    if (addUserForm) {
+        addUserForm.addEventListener('submit', validateUserForm);
+    }
+    
+    const addTeacherForm = document.getElementById('addTeacherForm');
+    if (addTeacherForm) {
+        addTeacherForm.addEventListener('submit', validateTeacherForm);
+    }
+    
+    const editUserForm = document.getElementById('editUserForm');
+    if (editUserForm) {
+        editUserForm.addEventListener('submit', validateEditUserForm);
+    }
+});
+
+function filterUsers() {
+    const searchInput = document.getElementById('userSearch');
+    if (!searchInput) return;
+    
+    const searchTerm = searchInput.value.toLowerCase();
+    const rows = document.querySelectorAll('#usersTable tbody tr');
+    let visibleCount = 0;
+    
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        if (text.includes(searchTerm)) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+    
+    const noResultsRow = document.getElementById('noUsersResults');
+    if (visibleCount === 0) {
+        if (!noResultsRow) {
+            const tbody = document.getElementById('usersTableBody');
+            const tr = document.createElement('tr');
+            tr.id = 'noUsersResults';
+            tr.innerHTML = '<td colspan="7" class="text-center py-4"><i class="bi bi-search fs-1 text-muted"></i><p class="text-muted mt-2">No users match your search</p></td>';
+            tbody.appendChild(tr);
+        }
+    } else if (noResultsRow) {
+        noResultsRow.remove();
+    }
+}
+
+function filterTeachers() {
+    const searchInput = document.getElementById('teacherSearch');
+    if (!searchInput) return;
+    
+    const searchTerm = searchInput.value.toLowerCase();
+    const rows = document.querySelectorAll('#teachersTable tbody tr');
+    let visibleCount = 0;
+    
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        if (text.includes(searchTerm)) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+    
+    const noResultsRow = document.getElementById('noTeachersResults');
+    if (visibleCount === 0) {
+        if (!noResultsRow) {
+            const tbody = document.getElementById('teachersTableBody');
+            const tr = document.createElement('tr');
+            tr.id = 'noTeachersResults';
+            tr.innerHTML = '<td colspan="7" class="text-center py-4"><i class="bi bi-search fs-1 text-muted"></i><p class="text-muted mt-2">No teachers match your search</p></td>';
+            tbody.appendChild(tr);
+        }
+    } else if (noResultsRow) {
+        noResultsRow.remove();
+    }
+}
+
+function editUser(userId) {
+    fetch(`/api/user/${userId}`)
+        .then(response => response.json())
+        .then(user => {
+            document.getElementById('editUserId').value = user.id;
+            document.getElementById('editUsername').value = user.username;
+            document.getElementById('editFullName').value = user.full_name;
+            document.getElementById('editEmail').value = user.email;
+            document.getElementById('editRole').value = user.role;
+            document.getElementById('editDepartment').value = user.department || '';
+            document.getElementById('editPassword').value = '';
+            
+            const editModal = new bootstrap.Modal(document.getElementById('editUserModal'));
+            editModal.show();
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('Failed to load user data: ' + error.message, 'danger');
+        });
+}
+
+function toggleUser(userId, currentStatus, button) {
+    const action = currentStatus === 'active' ? 'deactivate' : 'activate';
+    
+    if (!confirm(`Are you sure you want to ${action} this user?`)) return;
+    
+    const originalText = button.innerHTML;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span>';
+    button.disabled = true;
+    
+    fetch(`/api/toggle-user/${userId}`, { method: 'POST' })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification(`User ${action}d successfully!`, 'success');
+                const row = document.getElementById(`user-${userId}`);
+                if (row) {
+                    const statusBadge = row.querySelector('.status-badge');
+                    const newStatus = data.is_active ? 'Active' : 'Inactive';
+                    const newStatusClass = data.is_active ? 'bg-success' : 'bg-secondary';
+                    statusBadge.textContent = newStatus;
+                    statusBadge.className = `badge status-badge ${newStatusClass}`;
+                    
+                    const toggleBtn = row.querySelector('.toggle-user-btn');
+                    const newBtnStatus = data.is_active ? 'active' : 'inactive';
+                    const newBtnClass = data.is_active ? 'danger' : 'success';
+                    const newIcon = data.is_active ? 'toggle-off' : 'toggle-on';
+                    const newTitle = data.is_active ? 'Deactivate User' : 'Activate User';
+                    
+                    toggleBtn.innerHTML = `<i class="bi bi-${newIcon}"></i>`;
+                    toggleBtn.className = `btn btn-sm btn-outline-${newBtnClass} toggle-user-btn`;
+                    toggleBtn.dataset.userStatus = newBtnStatus;
+                    toggleBtn.setAttribute('title', newTitle);
+                    new bootstrap.Tooltip(toggleBtn);
+                }
+            } else {
+                throw new Error(data.error || `Failed to ${action} user`);
+            }
+        })
+        .catch(error => {
+            button.innerHTML = originalText;
+            button.disabled = false;
+            showNotification(error.message, 'danger');
+        });
+}
+
+function editTeacher(teacherId) {
+    fetch(`/api/teacher/${teacherId}`)
+        .then(response => response.json())
+        .then(teacher => {
+            document.getElementById('editTeacherId').value = teacher.id;
+            document.getElementById('editTeacherName').value = teacher.name;
+            document.getElementById('editTeacherEmail').value = teacher.email;
+            document.getElementById('editTeacherDepartment').value = teacher.department;
+            document.getElementById('editTeacherSubjects').value = teacher.subjects;
+            
+            const editModal = new bootstrap.Modal(document.getElementById('editTeacherModal'));
+            editModal.show();
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('Failed to load teacher data: ' + error.message, 'danger');
+        });
+}
+
+function toggleTeacher(teacherId, currentStatus, button) {
+    const action = currentStatus === 'active' ? 'deactivate' : 'activate';
+    
+    if (!confirm(`Are you sure you want to ${action} this teacher?`)) return;
+    
+    const originalText = button.innerHTML;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span>';
+    button.disabled = true;
+    
+    fetch(`/api/toggle-teacher/${teacherId}`, { method: 'POST' })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification(`Teacher ${action}d successfully!`, 'success');
+                const row = document.getElementById(`teacher-${teacherId}`);
+                if (row) {
+                    const statusBadge = row.querySelector('.teacher-status-badge');
+                    const newStatus = data.is_active ? 'Active' : 'Inactive';
+                    const newStatusClass = data.is_active ? 'bg-success' : 'bg-secondary';
+                    statusBadge.textContent = newStatus;
+                    statusBadge.className = `badge teacher-status-badge ${newStatusClass}`;
+                    
+                    const toggleBtn = row.querySelector('.toggle-teacher-btn');
+                    const newBtnStatus = data.is_active ? 'active' : 'inactive';
+                    const newBtnClass = data.is_active ? 'danger' : 'success';
+                    const newIcon = data.is_active ? 'toggle-off' : 'toggle-on';
+                    const newTitle = data.is_active ? 'Deactivate Teacher' : 'Activate Teacher';
+                    
+                    toggleBtn.innerHTML = `<i class="bi bi-${newIcon}"></i>`;
+                    toggleBtn.className = `btn btn-sm btn-outline-${newBtnClass} toggle-teacher-btn`;
+                    toggleBtn.dataset.teacherStatus = newBtnStatus;
+                    toggleBtn.setAttribute('title', newTitle);
+                    new bootstrap.Tooltip(toggleBtn);
+                }
+            } else {
+                throw new Error(data.error || `Failed to ${action} teacher`);
+            }
+        })
+        .catch(error => {
+            button.innerHTML = originalText;
+            button.disabled = false;
+            showNotification(error.message, 'danger');
+        });
+}
+
+function validateUserForm(e) {
+    const password = this.querySelector('input[name="password"]').value;
+    const email = this.querySelector('input[name="email"]').value;
+    const username = this.querySelector('input[name="username"]').value;
+    const role = this.querySelector('select[name="role"]').value;
+    
+    if (username.length < 3) {
+        e.preventDefault();
+        showNotification('Username must be at least 3 characters long', 'warning');
+        return false;
+    }
+    
+    if (!isValidEmail(email)) {
+        e.preventDefault();
+        showNotification('Please enter a valid email address', 'warning');
+        return false;
+    }
+    
+    if (password.length < 6) {
+        e.preventDefault();
+        showNotification('Password must be at least 6 characters long', 'warning');
+        return false;
+    }
+    
+    if (!role) {
+        e.preventDefault();
+        showNotification('Please select a role', 'warning');
+        return false;
+    }
+    
+    return true;
+}
+
+function validateEditUserForm(e) {
+    const email = this.querySelector('input[name="email"]').value;
+    const username = this.querySelector('input[name="username"]').value;
+    const password = this.querySelector('input[name="password"]').value;
+    
+    if (username.length < 3) {
+        e.preventDefault();
+        showNotification('Username must be at least 3 characters long', 'warning');
+        return false;
+    }
+    
+    if (!isValidEmail(email)) {
+        e.preventDefault();
+        showNotification('Please enter a valid email address', 'warning');
+        return false;
+    }
+    
+    if (password && password.length < 6) {
+        e.preventDefault();
+        showNotification('Password must be at least 6 characters long if provided', 'warning');
+        return false;
+    }
+    
+    return true;
+}
+
+function validateTeacherForm(e) {
+    const email = this.querySelector('input[name="email"]').value;
+    const name = this.querySelector('input[name="name"]').value;
+    
+    if (name.length < 2) {
+        e.preventDefault();
+        showNotification('Name must be at least 2 characters long', 'warning');
+        return false;
+    }
+    
+    if (!isValidEmail(email)) {
+        e.preventDefault();
+        showNotification('Please enter a valid email address', 'warning');
+        return false;
+    }
+    
+    return true;
+}
+
+function isValidEmail(email) {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(email);
+}
+
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3`;
+    notification.style.zIndex = '9999';
+    notification.style.minWidth = '300px';
+    notification.style.maxWidth = '500px';
+    notification.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.body.appendChild(notification);
+    setTimeout(() => notification.remove(), 5000);
+}
+</script>
+
+<style>
+.position-fixed {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    min-width: 300px;
+    max-width: 500px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+.badge {
+    font-size: 0.85rem;
+    padding: 0.5em 0.75em;
+}
+
+.btn-group .btn {
+    margin-right: 3px;
+}
+
+.spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+    border-width: 0.15em;
+}
+
+#programSearch, #userSearch, #teacherSearch {
+    max-width: 300px;
+}
+
+/* Modal styling */
+.modal-content {
+    border: none;
+    box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15);
+}
+
+.modal-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.modal-footer {
+    background-color: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+}
+
+@media (max-width: 768px) {
+    .position-fixed {
+        left: 20px;
+        right: 20px;
+        min-width: auto;
+    }
+    
+    .btn-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 3px;
+    }
+    
+    .table td, .table th {
+        font-size: 0.85rem;
+    }
+}
+</style>
+{% endblock %}

@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+
+{% block title %}Dean Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <h2 class="mb-4"><i class="bi bi-building"></i> Dean Dashboard</h2>
+    
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-white bg-primary">
+                <div class="card-body">
+                    <h6 class="card-title text-white-50">Total Teachers</h6>
+                    <h2 class="mb-0">{{ total_teachers }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-success">
+                <div class="card-body">
+                    <h6 class="card-title text-white-50">Total Evaluations</h6>
+                    <h2 class="mb-0">{{ total_evaluations }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-info">
+                <div class="card-body">
+                    <h6 class="card-title text-white-50">Average Score</h6>
+                    <h2 class="mb-0">{{ "%.2f"|format(avg_score_all) }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-warning">
+                <div class="card-body">
+                    <h6 class="card-title text-white-50">Pending Dean Evals</h6>
+                    <h2 class="mb-0">{{ pending_teachers|length }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-person-workspace"></i> Teachers Pending Dean Evaluation</h5>
+                </div>
+                <div class="card-body">
+                    {% if pending_teachers %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Teacher</th>
+                                        <th>Department</th>
+                                        <th>Subjects</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for teacher in pending_teachers %}
+                                    <tr>
+                                        <td><strong>{{ teacher.name }}</strong></td>
+                                        <td>{{ teacher.department }}</td>
+                                        <td>{{ teacher.subjects }}</td>
+                                        <td>
+                                            <a href="{{ url_for('teacher_dashboard', teacher_id=teacher.id) }}" 
+                                               class="btn btn-sm btn-outline-info">
+                                                <i class="bi bi-graph-up"></i> Stats
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted text-center mb-0">All teachers have been evaluated by the Dean.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-trophy"></i> Top Performing Teachers</h5>
+                </div>
+                <div class="card-body">
+                    {% if teachers %}
+                        {% set top_teachers = [] %}
+                        {% for teacher in teachers %}
+                            {% if teacher.evaluations %}
+                                {% set total = namespace(value=0) %}
+                                {% for eval in teacher.evaluations %}
+                                    {% set total.value = total.value + eval.calculate_weighted_score() %}
+                                {% endfor %}
+                                {% set avg = total.value / teacher.evaluations|length %}
+                                {% if loop.index <= 5 %}
+                                <div class="list-group-item px-0 {% if not loop.first %}border-top{% endif %}">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <strong>{{ teacher.name }}</strong>
+                                            <br>
+                                            <small class="text-muted">{{ teacher.department }}</small>
+                                        </div>
+                                        <span class="badge bg-success">{{ "%.2f"|format(avg) }}</span>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if not top_teachers %}
+                            <p class="text-muted text-center mb-0">No evaluation data available</p>
+                        {% endif %}
+                    {% else %}
+                        <p class="text-muted text-center mb-0">No teachers found</p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-bar-chart"></i> Department Overview</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="departmentChart" style="height: 200px; display: none;"></canvas>
+                    <div id="noChartData" class="text-center py-4">
+                        <i class="bi bi-bar-chart fs-1 text-muted"></i>
+                        <p class="text-muted mt-2">Department data will appear here once evaluations are submitted</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const chartCanvas = document.getElementById('departmentChart');
+    const noDataMessage = document.getElementById('noChartData');
+    
+    // Try to fetch department data, but don't show errors
+    fetch('/api/department-scores')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data && data.departments && data.departments.length > 0 && 
+                data.scores && data.scores.length > 0 && 
+                data.scores.some(score => score > 0)) {
+                
+                // Show chart, hide no data message
+                chartCanvas.style.display = 'block';
+                noDataMessage.style.display = 'none';
+                
+                // Create chart
+                new Chart(chartCanvas, {
+                    type: 'bar',
+                    data: {
+                        labels: data.departments,
+                        datasets: [{
+                            label: 'Average Score',
+                            data: data.scores,
+                            backgroundColor: '#0d6efd',
+                            borderRadius: 6,
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return `Score: ${context.raw.toFixed(2)} / 5.00`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 5,
+                                grid: {
+                                    color: 'rgba(0,0,0,0.05)'
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Average Score'
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    display: false
+                                }
+                            }
+                        }
+                    }
+                });
+            } else {
+                // No data available - keep showing no data message
+                console.log('No department data available yet');
+            }
+        })
+        .catch(error => {
+            // Silently fail - just log to console, don't show alert
+            console.log('Department chart data not available yet');
+        });
+});
+</script>
+
+<style>
+.position-fixed {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    min-width: 300px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.list-group-item {
+    border-left: none;
+    border-right: none;
+    padding: 1rem 0;
+}
+
+.list-group-item:first-child {
+    border-top: none;
+}
+
+.badge {
+    font-size: 0.9rem;
+    padding: 0.5em 0.75em;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .position-fixed {
+        left: 20px;
+        right: 20px;
+        min-width: auto;
+    }
+    
+    .table td, .table th {
+        font-size: 0.85rem;
+    }
+}
+</style>
+{% endblock %}

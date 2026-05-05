@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Login - Teacher Evaluation System{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white text-center py-3">
+                    <h4 class="mb-0"><i class="bi bi-box-arrow-in-right"></i> Login</h4>
+                </div>
+                <div class="card-body p-4">
+                    <form method="POST" action="{{ url_for('login') }}">
+                        <div class="mb-3">
+                            <label for="username" class="form-label">Username</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-person"></i></span>
+                                <input type="text" class="form-control" id="username" name="username" 
+                                       required autofocus placeholder="Enter your username">
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Password</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                                <input type="password" class="form-control" id="password" name="password" 
+                                       required placeholder="Enter your password">
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="remember" name="remember">
+                            <label class="form-check-label" for="remember">Remember me</label>
+                        </div>
+                        
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-box-arrow-in-right"></i> Login
+                            </button>
+                        </div>
+                    </form>
+                    
+                    <!-- Added registration link -->
+                    <div class="text-center mt-3">
+                        <p>Don't have an account? <a href="{{ url_for('register') }}" class="text-primary">Register as Student</a></p>
+                    </div>
+                </div>
+                <!-- <div class="card-footer bg-light">
+                    <div class="small">
+                        <p class="mb-1"><strong>Demo Credentials:</strong></p>
+                        <p class="mb-1">Admin: username: <code>admin</code>, password: <code>admin123</code></p>
+                        <p class="mb-1">Student: username: <code>student1</code>, password: <code>password123</code></p>
+                        <p class="mb-1">Program Head: username: <code>ph_cs</code>, password: <code>password123</code></p>
+                        <p class="mb-0">Dean: username: <code>dean</code>, password: <code>password123</code></p>
+                    </div>
+                </div> -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

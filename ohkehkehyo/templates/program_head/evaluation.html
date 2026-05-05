@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block title %}Program Head Evaluation{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('program_head_dashboard') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item active">Evaluate Teacher</li>
+                </ol>
+            </nav>
+            
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Program Head Evaluation: {{ teacher.name }}</h4>
+                    <small>{{ teacher.department }} - {{ teacher.subjects }}</small>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle-fill"></i>
+                        <strong>Note:</strong> Your evaluation carries 30% weight in the final score.
+                    </div>
+                    
+                    <form method="POST" id="evaluationForm" onsubmit="return validateForm()">
+                        <h5 class="mb-3">Rate the following aspects (1-5):</h5>
+                        <p class="text-muted small mb-4">1 = Poor, 2 = Fair, 3 = Good, 4 = Very Good, 5 = Excellent</p>
+                        
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Curriculum Implementation</label>
+                            <div class="rating-stars mb-2">
+                                {% for i in range(1, 6) %}
+                                <input type="radio" name="curriculum" value="{{ i }}" id="curr{{ i }}" required>
+                                <label for="curr{{ i }}"><i class="bi bi-star-fill"></i></label>
+                                {% endfor %}
+                            </div>
+                            <small class="text-muted">How well does the teacher implement the curriculum?</small>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Assessment Quality</label>
+                            <div class="rating-stars mb-2">
+                                {% for i in range(1, 6) %}
+                                <input type="radio" name="assessment" value="{{ i }}" id="assess{{ i }}" required>
+                                <label for="assess{{ i }}"><i class="bi bi-star-fill"></i></label>
+                                {% endfor %}
+                            </div>
+                            <small class="text-muted">Quality of assessments and grading practices</small>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Mentoring & Student Support</label>
+                            <div class="rating-stars mb-2">
+                                {% for i in range(1, 6) %}
+                                <input type="radio" name="mentoring" value="{{ i }}" id="mentor{{ i }}" required>
+                                <label for="mentor{{ i }}"><i class="bi bi-star-fill"></i></label>
+                                {% endfor %}
+                            </div>
+                            <small class="text-muted">How well does the teacher mentor and support students?</small>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="comments" class="form-label fw-bold">Additional Comments (Optional)</label>
+                            <textarea class="form-control" id="comments" name="comments" rows="4" 
+                                      placeholder="Provide professional feedback about this teacher's performance..."></textarea>
+                        </div>
+                        
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary flex-grow-1">
+                                <i class="bi bi-check-circle"></i> Submit Evaluation
+                            </button>
+                            <a href="{{ url_for('program_head_dashboard') }}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-circle"></i> Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.rating-stars {
+    display: flex;
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+    gap: 0.25rem;
+}
+
+.rating-stars input {
+    display: none;
+}
+
+.rating-stars label {
+    font-size: 2rem;
+    color: #ddd;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.rating-stars label:hover,
+.rating-stars label:hover ~ label,
+.rating-stars input:checked ~ label {
+    color: #ffc107;
+    transform: scale(1.1);
+}
+</style>
+
+<script>
+function validateForm() {
+    const ratings = ['curriculum', 'assessment', 'mentoring'];
+    let allSelected = true;
+    
+    for (let rating of ratings) {
+        const selected = document.querySelector(`input[name="${rating}"]:checked`);
+        if (!selected) {
+            allSelected = false;
+            break;
+        }
+    }
+    
+    if (!allSelected) {
+        alert('Please rate all categories before submitting.');
+        return false;
+    }
+    
+    return confirm('Are you sure you want to submit this evaluation?');
+}
+</script>
+{% endblock %}

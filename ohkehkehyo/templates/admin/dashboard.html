@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <h2 class="mb-4"><i class="bi bi-speedometer2"></i> Admin Dashboard</h2>
+    
+    <!-- Statistics Cards Row 1 -->
+    <div class="row mb-4 g-4">
+        <div class="col-md-3">
+            <div class="card text-white bg-primary stat-card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-white-50">Total Teachers</h6>
+                            <h2 class="mb-0 display-6">{{ total_teachers }}</h2>
+                        </div>
+                        <i class="bi bi-people-fill fs-1 opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card text-white bg-success stat-card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-white-50">Total Students</h6>
+                            <h2 class="mb-0 display-6">{{ total_students }}</h2>
+                        </div>
+                        <i class="bi bi-mortarboard-fill fs-1 opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card text-white bg-info stat-card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-white-50">Total Evaluations</h6>
+                            <h2 class="mb-0 display-6">{{ total_evaluations }}</h2>
+                            <small class="text-white-50">({{ class_evals }} class-based)</small>
+                        </div>
+                        <i class="bi bi-clipboard-check-fill fs-1 opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card text-white bg-warning stat-card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-white-50">Pending</h6>
+                            <h2 class="mb-0 display-6">{{ pending_evaluations }}</h2>
+                        </div>
+                        <i class="bi bi-hourglass-split fs-1 opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Second Row Stats - Section Stats -->
+    <div class="row mb-4 g-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="card-title text-muted mb-3">Program Heads</h6>
+                    <h3>{{ total_program_heads }}</h3>
+                    <small class="text-muted">Active administrators</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="card-title text-muted mb-3">Deans</h6>
+                    <h3>{{ total_deans }}</h3>
+                    <small class="text-muted">Academic deans</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="card-title text-muted mb-3">Sections</h6>
+                    <h3>{{ total_sections|default(0) }}</h3>
+                    <small class="text-muted">Active sections</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="card-title text-muted mb-3">Completion Rate</h6>
+                    <h3>
+                        {% if total_evaluations > 0 and (total_evaluations + pending_evaluations) > 0 %}
+                            {{ "%.1f"|format((total_evaluations / (total_evaluations + pending_evaluations) * 100)) }}%
+                        {% else %}
+                            0%
+                        {% endif %}
+                    </h3>
+                    <small class="text-muted">Overall completion</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Evaluations -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-clock-history"></i> Recent Evaluations</h5>
+            <button class="btn btn-sm btn-outline-primary" onclick="exportData()">
+                <i class="bi bi-download"></i> Export
+            </button>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Date</th>
+                            <th>Teacher / Subject</th>
+                            <th>Department / Section</th>
+                            <th>Evaluator</th>
+                            <th>Score</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for eval in recent_evaluations %}
+                        <tr>
+                            <td>{{ eval.submitted_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>
+                                <strong>{{ eval.teacher_name }}</strong>
+                                {% if eval.subject_name %}
+                                    <br><small class="text-muted">{{ eval.subject_name }}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {{ eval.department }}
+                                {% if eval.section_name %}
+                                    <br><small class="text-muted">{{ eval.section_name }}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-{{ 'info' if eval.evaluator_role == 'student' 
+                                                      else 'success' if eval.evaluator_role == 'program_head'
+                                                      else 'warning' }}">
+                                    <i class="bi bi-{{ 'person' if eval.evaluator_role == 'student' 
+                                                     else 'people' if eval.evaluator_role == 'program_head'
+                                                     else 'building' }}"></i>
+                                    {{ eval.evaluator_role|replace('_', ' ')|title }}
+                                </span>
+                                {% if eval.type == 'class' %}
+                                    <span class="badge bg-secondary ms-1">Class Eval</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="fw-bold">{{ "%.2f"|format(eval.score) }}</span>
+                                <small class="text-muted">/ 5.00</small>
+                            </td>
+                            <td>
+                                <a href="{{ url_for('teacher_dashboard', teacher_id=eval.teacher_id) }}" 
+                                   class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-eye"></i> View
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            {% if not recent_evaluations %}
+            <div class="text-center py-4">
+                <i class="bi bi-inbox fs-1 text-muted"></i>
+                <p class="text-muted mt-2">No evaluations yet</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+function exportData() {
+    window.location.href = "{{ url_for('export_audit_logs') }}";
+}
+</script>
+{% endblock %}

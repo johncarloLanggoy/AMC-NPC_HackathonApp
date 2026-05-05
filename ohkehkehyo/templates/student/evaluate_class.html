@@ -1,0 +1,310 @@
+{% extends "base.html" %}
+
+{% block title %}Evaluate Class - {{ class_assignment.subject_name }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('student_dashboard') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item active">Evaluate Class</li>
+                </ol>
+            </nav>
+            
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Evaluate: {{ class_assignment.subject_name }}</h4>
+                    <small>
+                        {{ class_assignment.teacher.name }} | 
+                        {{ class_assignment.section.name }} | 
+                        {{ class_assignment.subject_type }} | 
+                        Schedule ID: <strong id="displayScheduleId">{{ class_assignment.schedule_id }}</strong>
+                    </small>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle-fill"></i> 
+                        <strong>Anonymous Evaluation:</strong> Your evaluation will be kept anonymous. 
+                        The teacher will not know who submitted this feedback.
+                    </div>
+                    
+                    <!-- Irregular Student Notice - Only show for irregular students -->
+                    {% if current_user.is_irregular %}
+                    <div class="alert alert-warning mb-4" id="irregularNotice">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <strong>Irregular Student:</strong> If your Schedule ID is different from <strong>{{ class_assignment.schedule_id }}</strong>, please enter your correct Schedule ID below.
+                    </div>
+                    {% endif %}
+                    
+                    <form method="POST" id="evaluationForm" onsubmit="return validateForm()">
+                        <h5 class="mb-3">Rate the following aspects (1-5):</h5>
+                        <p class="text-muted small mb-4">1 = Poor, 2 = Fair, 3 = Good, 4 = Very Good, 5 = Excellent</p>
+                        
+                        <!-- Schedule ID for Irregular Students - Only show for irregular students -->
+                        {% if current_user.is_irregular %}
+                        <div class="mb-4" id="scheduleIdField">
+                            <label class="form-label fw-bold">
+                                <i class="bi bi-tag"></i> Your Schedule ID
+                                <span class="text-danger">*</span>
+                                <small class="text-muted">(For irregular students only)</small>
+                            </label>
+                            <input type="text" class="form-control" name="custom_schedule_id" id="customScheduleId" 
+                                   placeholder="Enter your Schedule ID (e.g., 37141)"
+                                   pattern="[0-9]{5}" maxlength="5" required>
+                            <small class="text-muted">Enter the Schedule ID from your class enrollment. Default is <strong>{{ class_assignment.schedule_id }}</strong></small>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Hidden field to track if user is irregular -->
+                        <input type="hidden" id="isIrregularFlag" name="is_irregular" value="{{ 'true' if current_user.is_irregular else 'false' }}">
+                        
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Teaching Clarity</label>
+                            <div class="rating-stars mb-2">
+                                {% for i in range(1, 6) %}
+                                <input type="radio" name="teaching_clarity" value="{{ i }}" id="tc{{ i }}" required>
+                                <label for="tc{{ i }}"><i class="bi bi-star-fill"></i></label>
+                                {% endfor %}
+                            </div>
+                            <small class="text-muted">How clear and understandable were the lectures/discussions?</small>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Student Engagement</label>
+                            <div class="rating-stars mb-2">
+                                {% for i in range(1, 6) %}
+                                <input type="radio" name="engagement" value="{{ i }}" id="eng{{ i }}" required>
+                                <label for="eng{{ i }}"><i class="bi bi-star-fill"></i></label>
+                                {% endfor %}
+                            </div>
+                            <small class="text-muted">How well did the teacher engage students in learning?</small>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Fairness in Assessment</label>
+                            <div class="rating-stars mb-2">
+                                {% for i in range(1, 6) %}
+                                <input type="radio" name="fairness" value="{{ i }}" id="fair{{ i }}" required>
+                                <label for="fair{{ i }}"><i class="bi bi-star-fill"></i></label>
+                                {% endfor %}
+                            </div>
+                            <small class="text-muted">Were assessments, quizzes, and exams fair?</small>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Subject Matter Mastery</label>
+                            <div class="rating-stars mb-2">
+                                {% for i in range(1, 6) %}
+                                <input type="radio" name="subject_mastery" value="{{ i }}" id="sm{{ i }}" required>
+                                <label for="sm{{ i }}"><i class="bi bi-star-fill"></i></label>
+                                {% endfor %}
+                            </div>
+                            <small class="text-muted">How well does the teacher know and explain the subject?</small>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Punctuality & Attendance</label>
+                            <div class="rating-stars mb-2">
+                                {% for i in range(1, 6) %}
+                                <input type="radio" name="punctuality" value="{{ i }}" id="punct{{ i }}" required>
+                                <label for="punct{{ i }}"><i class="bi bi-star-fill"></i></label>
+                                {% endfor %}
+                            </div>
+                            <small class="text-muted">Does the teacher start/end class on time?</small>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="comments" class="form-label fw-bold">Additional Comments (Optional)</label>
+                            <textarea class="form-control" id="comments" name="comments" rows="4" 
+                                      placeholder="Share your thoughts about this class, the teacher's teaching style, strengths, areas for improvement..."></textarea>
+                        </div>
+                        
+                        <div class="mb-4 form-check">
+                            <input type="checkbox" class="form-check-input" name="anonymous" id="anonymous" checked>
+                            <label class="form-check-label" for="anonymous">
+                                <i class="bi bi-incognito"></i> Submit anonymously (recommended)
+                            </label>
+                        </div>
+                        
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary flex-grow-1" id="submitBtn">
+                                <i class="bi bi-check-circle"></i> Submit Evaluation
+                            </button>
+                            <a href="{{ url_for('student_dashboard') }}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-circle"></i> Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.rating-stars {
+    display: flex;
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+    gap: 0.25rem;
+}
+
+.rating-stars input {
+    display: none;
+}
+
+.rating-stars label {
+    font-size: 2rem;
+    color: #ddd;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.rating-stars label:hover,
+.rating-stars label:hover ~ label,
+.rating-stars input:checked ~ label {
+    color: #ffc107;
+    transform: scale(1.1);
+}
+
+.rating-stars label i {
+    font-size: 2rem;
+}
+
+@media (max-width: 768px) {
+    .rating-stars label {
+        font-size: 1.5rem;
+    }
+}
+
+#customScheduleId:focus {
+    border-color: #ffc107;
+    box-shadow: 0 0 0 0.25rem rgba(255, 193, 7, 0.25);
+}
+</style>
+
+<script>
+// Wait for DOM to be fully loaded
+document.addEventListener('DOMContentLoaded', function() {
+    // This is only relevant for irregular students, but the code won't run if elements don't exist
+    var customScheduleId = document.getElementById('customScheduleId');
+    if (customScheduleId) {
+        var defaultScheduleId = document.getElementById('displayScheduleId') ? document.getElementById('displayScheduleId').innerText : '';
+        customScheduleId.placeholder = 'Default: ' + defaultScheduleId;
+    }
+    
+    // Add tooltips to rating labels (for all users)
+    var ratingLabels = document.querySelectorAll('.rating-stars label');
+    for (var i = 0; i < ratingLabels.length; i++) {
+        var label = ratingLabels[i];
+        var forAttr = label.getAttribute('for');
+        var matchResult = forAttr.match(/\d+$/);
+        var starValue = matchResult ? matchResult[0] : null;
+        var ratingText = '';
+        
+        if (starValue === '1') ratingText = 'Poor';
+        else if (starValue === '2') ratingText = 'Fair';
+        else if (starValue === '3') ratingText = 'Good';
+        else if (starValue === '4') ratingText = 'Very Good';
+        else if (starValue === '5') ratingText = 'Excellent';
+        
+        if (ratingText) {
+            label.title = ratingText;
+        }
+    }
+    
+    // Add character counter for comments (for all users)
+    var commentsField = document.getElementById('comments');
+    if (commentsField) {
+        var counterDiv = document.createElement('div');
+        counterDiv.className = 'text-muted small mt-1';
+        counterDiv.id = 'commentsCounter';
+        counterDiv.textContent = '0 / 500 characters';
+        commentsField.parentNode.appendChild(counterDiv);
+        
+        commentsField.addEventListener('input', function() {
+            var length = this.value.length;
+            var counter = document.getElementById('commentsCounter');
+            if (counter) {
+                counter.textContent = length + ' / 500 characters';
+                if (length > 500) {
+                    counter.classList.add('text-danger');
+                    counter.classList.remove('text-muted');
+                } else {
+                    counter.classList.remove('text-danger');
+                    counter.classList.add('text-muted');
+                }
+            }
+        });
+    }
+});
+
+// Validation function
+function validateForm() {
+    var ratings = ['teaching_clarity', 'engagement', 'fairness', 'subject_mastery', 'punctuality'];
+    var allSelected = true;
+    var missingRatingsArray = [];
+    
+    for (var i = 0; i < ratings.length; i++) {
+        var rating = ratings[i];
+        var selector = 'input[name="' + rating + '"]:checked';
+        var selected = document.querySelector(selector);
+        
+        if (!selected) {
+            allSelected = false;
+            var ratingLabel = rating.replace('_', ' ');
+            missingRatingsArray.push(ratingLabel);
+            break;
+        }
+    }
+    
+    if (!allSelected) {
+        alert('Please rate all categories before submitting.\nMissing: ' + missingRatingsArray.join(', '));
+        return false;
+    }
+    
+    // Validate Schedule ID for irregular students only
+    var isIrregularHidden = document.getElementById('isIrregularFlag');
+    var isIrregular = isIrregularHidden && isIrregularHidden.value === 'true';
+    var customScheduleId = document.getElementById('customScheduleId');
+    
+    if (isIrregular && customScheduleId) {
+        if (!customScheduleId.value || customScheduleId.value.length < 5) {
+            alert('Please enter your Schedule ID (5-digit number)');
+            customScheduleId.focus();
+            return false;
+        }
+        
+        if (!/^\d{5}$/.test(customScheduleId.value)) {
+            alert('Schedule ID must be exactly 5 digits (0-9 only)');
+            customScheduleId.focus();
+            return false;
+        }
+    }
+    
+    return confirm('Are you sure you want to submit this evaluation? You cannot edit it after submission.');
+}
+
+// Prevent double submission
+var evaluationForm = document.getElementById('evaluationForm');
+if (evaluationForm) {
+    evaluationForm.addEventListener('submit', function(e) {
+        var submitBtn = document.getElementById('submitBtn');
+        if (submitBtn && submitBtn.disabled) {
+            e.preventDefault();
+            return false;
+        }
+        
+        // Disable submit button to prevent double submission
+        if (submitBtn) {
+            setTimeout(function() {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Submitting...';
+            }, 100);
+        }
+    });
+}
+</script>
+{% endblock %}
